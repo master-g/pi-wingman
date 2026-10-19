@@ -32,10 +32,10 @@
 
 <!-- 整块改写：分支、验证命令及实际结果、停在何处；接下来做什么。 -->
 
-- [2026-10-19] main:按 pi 扩展规范 + TS 写法审计全仓,修复 13 项(旁路不再阻塞事件循环、拼错模型不回退、tarball 加 files、getAgentDir、冷却期不丢事件、目标统一捕获、keybindings/theme、role 收窄去重等)。验证:`bun test` 58 过、`npm run typecheck` 干净、`npm pack --dry-run` 仅源码+README+LICENSE、print 模式加载无报错。未推送未发布。
+- [2026-10-19] main:按 pi 扩展规范 + TS 写法审计全仓并修复 13 项,58 测试过、typecheck 干净;已推送 origin/main(0dedb4d),用户手动 `npm publish` 了 @master.g/pi-wingman@0.0.1(npm 日志显示已提交、registry 处理中,发布后立即 `npm view` 仍 404)。
 
 ## 下次运行
 
 <!-- 整块改写：接下来的任务和优先级，含仍受阻的项。 -->
 
-- [2026-10-19] 1) 推送(需用户确认);2) 可选 `npm publish`(需确认,先 `npm pack --dry-run`);3) 真实 pi 里试用:后台 advisor 的 steer 时机与 idle 只提示体感、hint 过期丢弃、heads-up widget 主题色与数字键手感;WINGMAN_DEBUG=1 日志现在在 os.tmpdir()。
+- [2026-10-19] 1) `npm view @master.g/pi-wingman` 确认 0.0.1 上线、fileCount=10;2) 真实 pi 里试用:后台 advisor 的 steer 时机与 idle 只提示体感、hint 过期丢弃、heads-up widget 主题色与数字键手感(WINGMAN_DEBUG=1,日志在 os.tmpdir())。
