@@ -18,7 +18,7 @@ function makeEditor() {
 		getSubmitted: () => submitted,
 		ghostVisible: () => {
 			try {
-				return editor.render(80).some((line) => line.includes("💡"));
+				return editor.render(80).some((line) => line.includes("\x1b[2m"));
 			} catch (error) {
 				throw new Error(`render 在 mock 下不可用,检查 mock 是否缺字段: ${error}`);
 			}
@@ -31,6 +31,15 @@ describe("WingmanEditor ghost text 状态机", () => {
 		const { editor, ghostVisible } = makeEditor();
 		editor.setHint("继续实现 M2");
 		expect(ghostVisible()).not.toBe(false);
+	});
+
+	test("ghost 内联在输入行,不额外占一行", () => {
+		const { editor } = makeEditor();
+		const before = editor.render(80);
+		editor.setHint("继续实现 M2");
+		const after = editor.render(80);
+		expect(after.length).toBe(before.length);
+		expect(after[1]).toContain("继续实现 M2");
 	});
 
 	test("Tab 填入可编辑文本,ghost 清除,不触发提交", () => {

@@ -116,6 +116,7 @@ export default function (pi: ExtensionAPI) {
 			if (value) {
 				saveConfig(config);
 				editors.sync(ctx, config);
+				if (!config[feature].enabled) ctx.ui.setStatus(`wingman-${feature}`, undefined);
 			}
 			ctx.ui.notify(`wingman · ${line}`, "info");
 		},

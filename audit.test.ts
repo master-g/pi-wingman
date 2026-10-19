@@ -104,7 +104,7 @@ describe("Auditor 冷却与互斥", () => {
 	test("成功路径返回解析后的 Verdict", async () => {
 		const auditor = new Auditor({ minIntervalMs: 1000, now: () => 0 });
 		const v = await auditor.run(registryReturning("VERDICT: note\nSUMMARY: 可以顺手改名"), fakeModel, input);
-		expect(v).toEqual({ level: "note", summary: "可以顺手改名", details: [] });
+		expect(v).toEqual({ ok: true, verdict: { level: "note", summary: "可以顺手改名", details: [] } });
 	});
 
 	test("冷却期内跳过", async () => {
@@ -141,7 +141,7 @@ describe("Auditor 冷却与互斥", () => {
 		expect(calls).toBe(1);
 	});
 
-	test("模型调用失败返回 undefined 且解除互斥", async () => {
+	test("模型调用失败返回原因且解除互斥", async () => {
 		const failing = {
 			find: () => undefined,
 			streamSimple: () => ({ result: async () => {
@@ -149,7 +149,7 @@ describe("Auditor 冷却与互斥", () => {
 			} }),
 		} as unknown as ModelRegistry;
 		const auditor = new Auditor({ minIntervalMs: 0, now: () => 0 });
-		expect(await auditor.run(failing, fakeModel, input)).toBeUndefined();
+		expect(await auditor.run(failing, fakeModel, input)).toEqual({ ok: false, reason: "boom" });
 		expect(await auditor.run(registryReturning("VERDICT: ok"), fakeModel, input)).toBeDefined();
 	});
 });

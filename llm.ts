@@ -76,7 +76,8 @@ export async function completeText(
 			.streamSimple(model, context, { signal: controller.signal, reasoning: effort === "off" ? undefined : effort })
 			.result();
 		if (response.stopReason !== "stop") {
-			return { ok: false, reason: `stopReason=${response.stopReason}` };
+			const detail = response.errorMessage ? `: ${response.errorMessage}` : "";
+			return { ok: false, reason: `stopReason=${response.stopReason}${detail}` };
 		}
 		const text = textOf(response.content).trim();
 		if (!text) return { ok: false, reason: "empty response" };

@@ -21,6 +21,15 @@ export interface Verdict {
 	details: string[];
 }
 
+/** 一次审计的结果:成功带裁决,失败带原因(给底栏状态看)。 */
+export type AuditResult = { ok: true; verdict: Verdict } | { ok: false; reason: string };
+
+/** 底栏状态文本:不传结果为审计中,否则 ✓ 级别 / ✗ 原因。 */
+export function auditStatus(feature: string, result?: AuditResult): string {
+	if (!result) return `${feature} ⋯`;
+	return result.ok ? `${feature} ✓ ${result.verdict.level}` : `${feature} ✗ ${result.reason.slice(0, 60)}`;
+}
+
 export type DigestMessage = Message;
 
 export interface DigestOptions {
@@ -93,7 +102,7 @@ export async function runAudit(
 	model: AnyModel,
 	input: { goal: string; digest: string },
 	options: CallOptions = {},
-): Promise<Verdict | undefined> {
+): Promise<AuditResult> {
 	const goal = input.goal ? `用户目标:${input.goal}\n\n` : "";
 	const result = await completeText(
 		registry,
@@ -110,8 +119,9 @@ export async function runAudit(
 		},
 		options,
 	);
-	if (!result.ok) return undefined;
-	return parseVerdict(result.text);
+	if (!result.ok) return result;
+	const verdict = parseVerdict(result.text);
+	return verdict ? { ok: true, verdict } : { ok: false, reason: `无法解析裁决:${result.text.slice(0, 40)}` };
 }
 
 /** 冷却 + 互斥的审计器:advisor(turn_end)与 heads-up(去抖)共用一个实例各管各的。 */
@@ -136,14 +146,14 @@ export class Auditor {
 		model: AnyModel,
 		input: { goal: string; digest: string },
 		options: CallOptions = {},
-	): Promise<Verdict | undefined> {
-		if (!this.ready) return undefined;
+	): Promise<AuditResult | undefined> {
+		if (!this.ready) return undefined; // 冷却或在途:跳过
 		this.inFlight = true;
 		this.lastRunAt = this.now();
 		try {
 			return await runAudit(registry, model, input, options);
-		} catch {
-			return undefined; // 静默降级
+		} catch (error) {
+			return { ok: false, reason: error instanceof Error ? error.message : String(error) };
 		} finally {
 			this.inFlight = false;
 		}

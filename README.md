@@ -30,6 +30,8 @@ pi --extension ~/github/pi-wingman/index.ts
 - `/wingman advisor|hint|headsup` — 不带值时弹出 pi 的模型选择器（同 `/model`，可搜索），选完模型再选思考强度（同 `/thinking`，Esc 跳过）；也可直接写 `<provider/model> [effort]`（模型须存在，effort 须是该模型支持的档位）、`on` / `off`（开关，保留已设模型与 effort）；参数支持补全
 - `/ask-advisor <问题>` — 就当前上下文咨询顾问模型，回答注入对话
 
+advisor 与 heads-up 审计通过（ok）时不打扰，只在底栏状态显示 `advisor ⋯`（审计中）、`advisor ✓ ok`（结果级别）或 `advisor ✗ 原因`（调用失败）；自定义 footer 扩展需要自己渲染扩展状态才看得到。
+
 ## 配置
 
 `<agentDir>/wingman.json`（默认 `~/.pi/agent/wingman.json`），由命令自动写入，也可手改：

@@ -20,7 +20,7 @@ import { truncateToWidth } from "@earendil-works/pi-tui";
 import { appendFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Auditor, type Verdict, type VerdictLevel } from "./audit.js";
+import { auditStatus, Auditor, type Verdict, type VerdictLevel } from "./audit.js";
 import type { WingmanConfig } from "./config.js";
 import type { EditorManager } from "./editor.js";
 import { resolveModel } from "./llm.js";
@@ -31,6 +31,7 @@ const WIDGET_KEY = "wingman-headsup";
 const LEVEL_COLOR: Partial<Record<VerdictLevel, ThemeColor>> = { concern: "warning", blocker: "error" };
 /** 冷却期内最多积压的工具事件数,超出丢最旧的。 */
 const MAX_PENDING = 30;
+const STATUS_KEY = "wingman-headsup";
 
 /** WINGMAN_DEBUG=1 时把管线决策追加到 <tmpdir>/wingman-debug.log;旁路默认静默,这是唯一的观测口。 */
 function debug(message: string): void {
@@ -213,14 +214,19 @@ export function installHeadsUp(
 		const events = pending;
 		pending = [];
 		debug(`flush: ${events.length} 个事件送审计`);
-		const verdict = await auditor.run(
+		ctx.ui.setStatus(STATUS_KEY, auditStatus("headsup"));
+		const result = await auditor.run(
 			ctx.modelRegistry,
 			model,
 			{ goal: getGoal(), digest: formatToolEvents(events) },
 			{ timeoutMs: 60_000, signal: shutdown.signal, effort: config.effort },
 		);
-		debug(`verdict: ${verdict ? `${verdict.level} ${verdict.summary}` : "(调用失败/跳过)"}`);
-		if (!verdict || (verdict.level !== "concern" && verdict.level !== "blocker")) return;
+		if (!result) return;
+		ctx.ui.setStatus(STATUS_KEY, auditStatus("headsup", result));
+		debug(`verdict: ${result.ok ? `${result.verdict.level} ${result.verdict.summary}` : `调用失败 ${result.reason}`}`);
+		if (!result.ok) return;
+		const { verdict } = result;
+		if (verdict.level !== "concern" && verdict.level !== "blocker") return;
 		if (!view.show(verdict)) {
 			debug("已在抑制集,不上屏");
 			return;

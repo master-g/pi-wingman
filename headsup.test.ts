@@ -121,6 +121,7 @@ function makeHarness(verdictText: string, headsupConfig: WingmanConfig["headsup"
 			setWidget: (_key: string, factory: unknown) => widgetCalls.push(factory),
 			setEditorText: (text: string) => editorTexts.push(text),
 			notify: () => {},
+			setStatus: () => {},
 		},
 	};
 	const pi = {

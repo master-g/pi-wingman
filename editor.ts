@@ -2,7 +2,7 @@
  * editor.ts — WingmanEditor 与其安装管理(EditorManager)。
  *
  * WingmanEditor 是全扩展唯一的 CustomEditor(setEditorComponent 全局只能装
- * 一个):hint 用 ghost 行(M1),heads-up 用数字键捕获(M3)。安装条件是
+ * 一个):hint 用输入行内联的暗色 ghost 文本(M1),heads-up 用数字键捕获(M3)。安装条件是
  * hint.enabled || headsup.enabled;session_start 与配置命令变更后各 sync
  * 一次,条件不变不动(避免重建丢掉 pendingHint)。
  */
@@ -32,10 +32,9 @@ export class WingmanEditor extends CustomEditor {
 
 	render(width: number): string[] {
 		const lines = super.render(width);
-		if (!this.pendingHint || this.getText().length > 0 || lines.length < 2) return lines;
-		// shortcut: ghost 渲染为输入行下方新增一行;如需与输入行内联覆盖再升级。
-		const ghost = truncateToWidth(`\x1b[2m  💡 ${this.pendingHint}\x1b[0m`, width);
-		lines.splice(lines.length - 1, 0, ghost);
+		if (!this.pendingHint || this.getText().length > 0 || lines.length < 3) return lines;
+		// 空编辑器的唯一内容行紧跟上边框:去掉行尾填充,把 hint 以暗色接在光标后
+		lines[1] = truncateToWidth(`${lines[1].replace(/ +$/, "")}\x1b[2m${this.pendingHint}\x1b[22m`, width);
 		return lines;
 	}
 

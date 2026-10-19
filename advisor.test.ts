@@ -38,10 +38,11 @@ describe("AdvisorState 防循环", () => {
 });
 
 describe("installAdvisor 后台审计", () => {
-	function harness(idle: boolean) {
+	function harness(idle: boolean, response: unknown = { stopReason: "stop", content: [{ type: "text", text: "VERDICT: concern\nSUMMARY: 改错了文件" }] }) {
 		const handlers = new Map<string, (event: never, ctx: never) => unknown>();
 		const steered: string[] = [];
 		const notified: string[] = [];
+		const statuses: (string | undefined)[] = [];
 		const pi = {
 			on: (event: string, handler: never) => handlers.set(event, handler),
 			registerCommand: () => {},
@@ -50,10 +51,10 @@ describe("installAdvisor 后台审计", () => {
 		const ctx = {
 			modelRegistry: {
 				find: () => ({ id: "p/m" }),
-				streamSimple: () => ({ result: async () => ({ stopReason: "stop", content: [{ type: "text", text: "VERDICT: concern\nSUMMARY: 改错了文件" }] }) }),
+				streamSimple: () => ({ result: async () => response }),
 			},
 			isIdle: () => idle,
-			ui: { notify: (text: string) => notified.push(text) },
+			ui: { notify: (text: string) => notified.push(text), setStatus: (_key: string, text?: string) => statuses.push(text) },
 		};
 		const config: WingmanConfig = {
 			headsup: { enabled: false },
@@ -65,7 +66,7 @@ describe("installAdvisor 后台审计", () => {
 			message: { role: "assistant", content: [{ type: "text", text: "改 a.ts" }] },
 			toolResults: [],
 		} as never;
-		return { onTurnEnd: () => handlers.get("turn_end")!(turnEnd, ctx as never), steered, notified };
+		return { onTurnEnd: () => handlers.get("turn_end")!(turnEnd, ctx as never), steered, notified, statuses };
 	}
 	const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -83,5 +84,20 @@ describe("installAdvisor 后台审计", () => {
 		await settle();
 		expect(h.notified.length).toBe(1);
 		expect(h.steered.length).toBe(0);
+	});
+
+	test("审计 ok 不打扰,但底栏状态显示审计中与结果", async () => {
+		const h = harness(false, { stopReason: "stop", content: [{ type: "text", text: "VERDICT: ok" }] });
+		h.onTurnEnd();
+		await settle();
+		expect(h.notified.length).toBe(0);
+		expect(h.statuses).toEqual(["advisor ⋯", "advisor ✓ ok"]);
+	});
+
+	test("调用失败在底栏显示原因", async () => {
+		const h = harness(false, { stopReason: "error", errorMessage: "rate limited", content: [] });
+		h.onTurnEnd();
+		await settle();
+		expect(h.statuses.at(-1)).toBe("advisor ✗ stopReason=error: rate limited");
 	});
 });

@@ -13,7 +13,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { Auditor, buildDigest, type DigestMessage, type VerdictLevel } from "./audit.js";
+import { auditStatus, Auditor, buildDigest, type DigestMessage, type VerdictLevel } from "./audit.js";
 import type { WingmanConfig } from "./config.js";
 import { completeText, messageText, resolveModel, type AnyModel, type ModelRegistry } from "./llm.js";
 
@@ -52,6 +52,8 @@ export class AdvisorState {
 
 const ASK_SYSTEM_PROMPT = `你是资深编程顾问,在旁观察一个编程 agent 的工作。给你用户的目标和 agent 近期动作摘要,以及用户现在问你的问题。直接回答问题本身,简洁具体,≤300 字,用中文。`;
 
+const STATUS_KEY = "wingman-advisor";
+
 const NOTIFY_TYPE: Record<Exclude<VerdictLevel, "ok">, "info" | "warning" | "error"> = {
 	note: "info",
 	concern: "warning",
@@ -68,14 +70,19 @@ export function installAdvisor(pi: ExtensionAPI, getConfig: () => WingmanConfig,
 	let pendingDigests: string[] = [];
 
 	const audit = async (ctx: ExtensionContext, registry: ModelRegistry, model: AnyModel, digest: string) => {
-		const verdict = await auditor.run(
+		ctx.ui.setStatus(STATUS_KEY, auditStatus("advisor"));
+		const result = await auditor.run(
 			registry,
 			model,
 			{ goal: getGoal(), digest },
 			// 后台审计不卡主流程,超时放宽给高 effort 留余地
 			{ timeoutMs: 60_000, signal: shutdown.signal, effort: getConfig().advisor.effort },
 		);
-		if (!verdict || verdict.level === "ok") return;
+		if (!result) return;
+		ctx.ui.setStatus(STATUS_KEY, auditStatus("advisor", result));
+		if (!result.ok) return;
+		const { verdict } = result;
+		if (verdict.level === "ok") return;
 		ctx.ui.notify(`advisor [${verdict.level}] ${verdict.summary}`, NOTIFY_TYPE[verdict.level]);
 		if (ctx.isIdle()) return; // 裁决迟到:agent 已停,只提示用户,不注入
 		pi.sendUserMessage(formatAdvisorNote(verdict), { deliverAs: "steer" });
