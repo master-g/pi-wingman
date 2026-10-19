@@ -5,9 +5,9 @@
 ## 现状
 
 - repo：https://github.com/master-g/pi-wingman（public），本地 `~/github/pi-wingman`，main 分支。
-- M1–M3 全部实现:`config.ts` 读写 `<agentDir>/wingman.json`(三功能默认关);`index.ts` 注册 `/wingman`(状态)+ 对称配置命令 `/advisor`、`/hint`、`/headsup`(`<provider/model>` 开并校验 / `on`、`off` 开关保留模型 / 无参看状态)并统一捕获用户目标;`editor.ts` 的 EditorManager 统一管理共享 WingmanEditor(安装条件 `hint.enabled || headsup.enabled`,配置命令后立即 sync);旁路调用全部在 handler 外后台执行。
+- M1–M3 全部实现:`config.ts` 读写 `<agentDir>/wingman.json`(三功能默认关);`index.ts` 注册 `/wingman`(状态)(无参看状态;`/wingman <advisor|hint|headsup>` 接 `<provider/model>` 开并校验 / `on`、`off` 开关保留模型)并统一捕获用户目标;`editor.ts` 的 EditorManager 统一管理共享 WingmanEditor(安装条件 `hint.enabled || headsup.enabled`,配置命令后立即 sync);旁路调用全部在 handler 外后台执行。
 - 已验证：`bun install` 后 `npm run typecheck` 通过。
-- 已验证(2026-10-19):print 模式 `pi --no-extensions -e ./index.ts --no-session -p "/advisor probe/test-model"` 全链路通过——扩展加载、斜杠命令派发(带参数)、配置读写均正常;typecheck 通过。未验:TUI 内 `ctx.ui.notify` 渲染(print 模式 notify 无可见输出但不报错)。
+- 已验证(2026-10-19):print 模式 `pi --no-extensions -e ./index.ts --no-session -p "/wingman advisor probe/test-model"` 全链路通过——扩展加载、斜杠命令派发(带参数)、配置读写均正常;typecheck 通过。未验:TUI 内 `ctx.ui.notify` 渲染(print 模式 notify 无可见输出但不报错)。
 
 ## 任务目标（三功能）
 

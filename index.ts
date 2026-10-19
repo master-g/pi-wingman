@@ -7,9 +7,9 @@
  * headsup 任一开启即装);llm.ts 是共享旁路调用层,audit.ts 是 M2/M3
  * 共享的审计管线。
  *
- * 配置入口对称：/advisor、/hint、/headsup 各接 <provider/model> 开启并设
- * 模型（须能在 modelRegistry 解析）、on/off 开关（保留模型）、无参看状态；
- * /wingman 总览。用户目标在此统一捕获，跳过 advisor 注入的旁注，供三个
+ * 配置集中在 /wingman：无参看总览；/wingman <feature> 接 <provider/model>
+ * 开启并设模型（须能在 modelRegistry 解析）、on/off 开关（保留模型）、
+ * 无值看该功能状态。用户目标在此统一捕获，跳过 advisor 注入的旁注，供三个
  * 功能共用。
  */
 
@@ -30,50 +30,57 @@ export default function (pi: ExtensionAPI) {
 	const getConfig = () => config;
 	const getGoal = () => goal;
 
+	const features = ["advisor", "hint", "headsup"] as const;
+	type Feature = (typeof features)[number];
+	const isFeature = (name: string | undefined): name is Feature => features.includes(name as Feature);
+
 	pi.registerCommand("wingman", {
-		description: "Show wingman status (headsup / advisor / hint)",
-		handler: async (_args, ctx) => {
-			ctx.ui.notify(
-				[
-					"wingman",
-					featureLine("headsup", config.headsup),
-					featureLine("advisor", config.advisor),
-					featureLine("hint", config.hint),
-				].join(" · "),
-				"info",
-			);
+		description: "Wingman status, or configure: /wingman <advisor|hint|headsup> <provider/model> | on | off",
+		getArgumentCompletions: (prefix) => {
+			const [feature, value, ...rest] = prefix.trimStart().split(/\s+/);
+			if (rest.length > 0) return null;
+			if (value === undefined) {
+				const items = features
+					.filter((name) => name.startsWith(feature ?? ""))
+					.map((name) => ({ value: `${name} `, label: name }));
+				return items.length > 0 ? items : null;
+			}
+			if (!isFeature(feature)) return null;
+			const models = registry?.getAvailable().map((m) => `${m.provider}/${m.id}`) ?? [];
+			const items = ["on", "off", ...models]
+				.filter((option) => option.startsWith(value))
+				.map((option) => ({ value: `${feature} ${option}`, label: option }));
+			return items.length > 0 ? items : null;
+		},
+		handler: async (args, ctx) => {
+			const [feature, value = "", ...extra] = args.trim().split(/\s+/).filter(Boolean);
+			if (feature === undefined) {
+				ctx.ui.notify(
+					["wingman", ...features.map((name) => featureLine(name, config[name]))].join(" · "),
+					"info",
+				);
+				return;
+			}
+			if (!isFeature(feature) || extra.length > 0) {
+				ctx.ui.notify("wingman · 用法 /wingman <advisor|hint|headsup> <provider/model> | on | off", "error");
+				return;
+			}
+			if (value && value !== "on" && value !== "off" && !resolveModel(ctx.modelRegistry, value, undefined)) {
+				ctx.ui.notify(`wingman · 找不到模型 ${value}(格式 provider/model-id)`, "error");
+				return;
+			}
+			if (value === "on" && feature !== "hint" && !config[feature].model) {
+				ctx.ui.notify(`wingman · ${feature} 需要模型,先 /wingman ${feature} <provider/model>`, "error");
+				return;
+			}
+			const line = applyFeatureArg(config, feature, value);
+			if (value) {
+				saveConfig(config);
+				editors.sync(ctx, config);
+			}
+			ctx.ui.notify(`wingman · ${line}`, "info");
 		},
 	});
-
-	for (const feature of ["advisor", "hint", "headsup"] as const) {
-		pi.registerCommand(feature, {
-			description: `Configure wingman ${feature}: /${feature} <provider/model> | on | off`,
-			getArgumentCompletions: (prefix) => {
-				const models = registry?.getAvailable().map((m) => `${m.provider}/${m.id}`) ?? [];
-				const items = ["on", "off", ...models]
-					.filter((value) => value.startsWith(prefix))
-					.map((value) => ({ value, label: value }));
-				return items.length > 0 ? items : null;
-			},
-			handler: async (args, ctx) => {
-				const value = args.trim();
-				if (value && value !== "on" && value !== "off" && !resolveModel(ctx.modelRegistry, value, undefined)) {
-					ctx.ui.notify(`wingman · 找不到模型 ${value}(格式 provider/model-id)`, "error");
-					return;
-				}
-				if (value === "on" && feature !== "hint" && !config[feature].model) {
-					ctx.ui.notify(`wingman · ${feature} 需要模型,先 /${feature} <provider/model>`, "error");
-					return;
-				}
-				const line = applyFeatureArg(config, feature, args);
-				if (args.trim()) {
-					saveConfig(config);
-					editors.sync(ctx, config);
-				}
-				ctx.ui.notify(`wingman · ${line}`, "info");
-			},
-		});
-	}
 
 	pi.on("session_start", (_event, ctx) => {
 		config = loadConfig();

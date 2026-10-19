@@ -39,7 +39,7 @@
 
 - `bun.lock`、`package-lock.json`：由包管理器生成，不手改。
 - `node_modules/`。
-- `~/.pi/agent/wingman.json`：用户本地配置，由 `/advisor` 等命令写入，不进仓库、不手改结构。
+- `~/.pi/agent/wingman.json`：用户本地配置，由 `/wingman` 命令写入，不进仓库、不手改结构。
 
 ## 审查规则
 

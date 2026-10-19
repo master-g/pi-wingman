@@ -193,7 +193,7 @@ export function installHeadsUp(
 		clearTimer();
 		if (pending.length === 0) return;
 		const config = getConfig().headsup;
-		// heads-up 必须显式配置模型才激活(开启必经 /headsup <model>);拼错模型也不回退当前模型
+		// heads-up 必须显式配置模型才激活(开启必经 /wingman headsup <model>);拼错模型也不回退当前模型
 		if (!config.enabled || !config.model) {
 			debug(`flush 跳过:enabled=${config.enabled} model=${config.model}`);
 			pending = [];

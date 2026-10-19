@@ -86,7 +86,7 @@ export function installAdvisor(pi: ExtensionAPI, getConfig: () => WingmanConfig,
 
 	pi.on("turn_end", (event, ctx) => {
 		const config = getConfig().advisor;
-		// advisor 必须显式配置模型才激活(开启必经 /advisor <model>);
+		// advisor 必须显式配置模型才激活(开启必经 /wingman advisor <model>);
 		// 未设或拼错模型都不回退当前模型,避免双份成本。
 		if (!config.enabled || !config.model) return;
 		if (!state.shouldAuditTurn()) return;
@@ -108,7 +108,7 @@ export function installAdvisor(pi: ExtensionAPI, getConfig: () => WingmanConfig,
 		handler: async (args, ctx) => {
 			const config = getConfig().advisor;
 			if (!config.enabled || !config.model) {
-				ctx.ui.notify("advisor 未启用,先 /advisor <provider/model> 配置", "error");
+				ctx.ui.notify("advisor 未启用,先 /wingman advisor <provider/model> 配置", "error");
 				return;
 			}
 			const question = args.trim();

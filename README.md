@@ -27,7 +27,7 @@ pi --extension ~/github/pi-wingman/index.ts
 ## 命令
 
 - `/wingman` — 查看三个功能的状态与模型
-- `/advisor`、`/hint`、`/headsup` — 各接 `<provider/model>`（开启并设模型，模型须存在）、`on` / `off`（开关，保留已设模型）、无参（看状态）；参数支持补全
+- `/wingman advisor|hint|headsup` — 各接 `<provider/model>`（开启并设模型，模型须存在）、`on` / `off`（开关，保留已设模型）、无参（看状态）；参数支持补全
 - `/ask-advisor <问题>` — 就当前上下文咨询顾问模型，回答注入对话
 
 ## 配置
@@ -42,7 +42,7 @@ pi --extension ~/github/pi-wingman/index.ts
 }
 ```
 
-三个功能默认都关闭：每个功能都会额外调用模型，需要用户自己开启。模型形如 `provider/model-id`；hint 没配模型时用当前模型（`/hint on`），advisor/heads-up 必须配模型才会激活。
+三个功能默认都关闭：每个功能都会额外调用模型，需要用户自己开启。模型形如 `provider/model-id`；hint 没配模型时用当前模型（`/wingman hint on`），advisor/heads-up 必须配模型才会激活。
 
 ## License
 
