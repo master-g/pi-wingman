@@ -66,7 +66,8 @@ export function installHint(
 		if (!model) return;
 		const transcript = buildDigest(event.messages as DigestMessage[], { maxMessages: 6, perMessageChars: 500 });
 		if (!transcript) return;
-		void generate(ctx.modelRegistry, model, transcript, generation);
+		// 后台执行已在 runner 的 try/catch 之外,自己兜底(会话替换后 UI 调用可能抛)
+		generate(ctx.modelRegistry, model, transcript, generation).catch(() => {});
 	});
 
 	pi.on("session_shutdown", () => {

@@ -99,7 +99,8 @@ export function installAdvisor(pi: ExtensionAPI, getConfig: () => WingmanConfig,
 		if (!auditor.ready) return; // 冷却或在途:摘要留到下一个 turn 一起审
 		const batch = pendingDigests.join("\n");
 		pendingDigests = [];
-		void audit(ctx, ctx.modelRegistry, model, batch);
+		// 后台执行已在 runner 的 try/catch 之外,自己兜底(会话替换后 UI 调用可能抛)
+		audit(ctx, ctx.modelRegistry, model, batch).catch(() => {});
 	});
 
 	pi.registerCommand("ask-advisor", {

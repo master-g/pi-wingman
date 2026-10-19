@@ -185,7 +185,7 @@ export function installHeadsUp(
 
 	const arm = (ctx: ExtensionContext) => {
 		clearTimer();
-		timer = setTimeout(() => void flush(ctx), debounceMs);
+		timer = setTimeout(() => runFlush(ctx), debounceMs);
 		timer.unref?.();
 	};
 
@@ -229,6 +229,11 @@ export function installHeadsUp(
 		debug("上屏");
 	};
 
+	/** 后台执行 flush:已在 runner 的 try/catch 之外,自己兜底(会话替换后 UI 调用可能抛)。 */
+	const runFlush = (ctx: ExtensionContext) => {
+		flush(ctx).catch(() => {});
+	};
+
 	// 数字键捕获:仅编辑器为空时由 WingmanEditor 调用;已知限制——
 	// 有 pending heads-up 时,空编辑器里输入 0/1/2 开头的文本会被当作命令
 	// (对齐 Claude Code 的行为)。
@@ -259,7 +264,7 @@ export function installHeadsUp(
 			-MAX_PENDING,
 		);
 		debug(`tool_end ${event.toolName}${event.isError ? " ERROR" : ""} pending=${pending.length}`);
-		if (pending.length >= batchSize) void flush(ctx);
+		if (pending.length >= batchSize) runFlush(ctx);
 		else arm(ctx);
 	});
 
