@@ -22,6 +22,12 @@
 	"publishConfig": {
 		"access": "public"
 	},
+	"files": [
+		"*.ts",
+		"!*.test.ts",
+		"README.md",
+		"LICENSE"
+	],
 	"pi": {
 		"extensions": [
 			"./index.ts"

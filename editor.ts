@@ -8,7 +8,7 @@
  */
 
 import { CustomEditor, type ExtensionContext, type KeybindingsManager } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth, type EditorTheme, type TUI } from "@earendil-works/pi-tui";
+import { getKeybindings, truncateToWidth, type EditorTheme, type TUI } from "@earendil-works/pi-tui";
 import type { WingmanConfig } from "./config.js";
 
 export class WingmanEditor extends CustomEditor {
@@ -48,19 +48,21 @@ export class WingmanEditor extends CustomEditor {
 			return; // heads-up 消费了数字键
 		}
 		if (this.pendingHint) {
-			if (data === "\t") {
+			// 与基类编辑器同一套键位判断:兼容 kitty 协议与用户自定义键位
+			const kb = getKeybindings();
+			if (kb.matches(data, "tui.input.tab")) {
 				// Tab:填入可编辑,吞掉 Tab 防触发补全
 				const hint = this.pendingHint;
 				this.pendingHint = undefined;
 				this.setText(hint);
 				return;
 			}
-			if (data === "\r" || data === "\n") {
-				// Enter:填入后走基类提交路径
+			if (kb.matches(data, "tui.input.submit")) {
+				// 提交键:填入后把同一按键交给基类走提交路径
 				const hint = this.pendingHint;
 				this.pendingHint = undefined;
 				this.setText(hint);
-				super.handleInput("\r");
+				super.handleInput(data);
 				return;
 			}
 			// 其他任意按键:清除 hint,按键照常转发

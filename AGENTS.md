@@ -24,7 +24,7 @@
 ## 工作流与陷阱
 
 - `git push` 和 `npm publish` 须用户确认：包以 `@master.g/pi-wingman` 公开发布，发出去的版本无法撤回。
-- 旁路 LLM 调用（headsup/advisor/hint）必须是只读非阻塞旁路：永不阻塞 `tool_call`，错误静默降级；idle 时 `ctx.signal` 不存在，用自有 AbortController，`session_shutdown` 统一 abort。
+- 旁路 LLM 调用（headsup/advisor/hint）必须是只读非阻塞旁路：pi 串行 await 每个事件 handler（含 `turn_end`/`agent_end`/`tool_execution_end`），handler 里只能 `void` 发起后台调用，不能 await 或 return promise；错误静默降级；idle 时 `ctx.signal` 不存在，用自有 AbortController，`session_shutdown` 统一 abort。
 - 渲染出的每行宽度不得超过给定宽度：超宽会让 pi-tui 的 `doRender` 抛错并拖垮整个 pi 进程。
 - widget 只通过工厂形式的 `ctx.ui.setWidget` 挂载一次，之后用 `tui.requestRender()` 更新：每次 `setWidget` 都会把 widget 移到 below-editor 栈底。
 - advisor 用 steer 注入主 agent 时，注入消息必须打标：advisor 触发的 turn 不再触发 advisor，防循环。

@@ -1,15 +1,17 @@
 /**
  * hint.ts — 任务结束后的下一步 prompt 建议(参照 Claude Code prompt suggestions)。
  *
- * agent_end 后用便宜模型生成 1 条 ≤120 字符的下一步 prompt,经 EditorManager
- * 拿到共享 WingmanEditor 设置 pending hint(ghost 渲染与 Tab/Enter/清除
- * 状态机在 editor.ts)。session_start / before_agent_start 清除 hint。
+ * agent_end 后在后台用便宜模型生成 1 条 ≤120 字符的下一步 prompt(不 await,
+ * 不拖住 agent_end 派发),经 EditorManager 拿到共享 WingmanEditor 设置
+ * pending hint(ghost 渲染与 Tab/Enter/清除状态机在 editor.ts)。
+ * before_agent_start 清除 hint 并使在途生成作废。
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { buildDigest, type DigestMessage } from "./audit.js";
 import type { WingmanConfig } from "./config.js";
 import type { EditorManager } from "./editor.js";
-import { completeText, messageText, resolveModel } from "./llm.js";
+import { completeText, resolveModel, type AnyModel, type ModelRegistry } from "./llm.js";
 
 const HINT_SYSTEM_PROMPT = `The user is driving an AI coding agent. Given the user's goal and the latest transcript, suggest the single next prompt the user is most likely to send.
 
@@ -20,50 +22,21 @@ Rules:
 - If the work looks finished, suggest a sensible follow-up or say "继续".`;
 
 const MAX_HINT_CHARS = 120;
-const TRANSCRIPT_TAIL = 6;
-const PER_MESSAGE_CHARS = 500;
 
-type Message = ExtensionContext["modelRegistry"] extends never
-	? never
-	: Parameters<ExtensionContext["modelRegistry"]["complete"]>[1]["messages"][number];
-
-/** 把最近消息压成简短转录：role + 截断正文。 */
-function buildTranscript(messages: Message[]): string {
-	return messages
-		.slice(-TRANSCRIPT_TAIL)
-		.map((m) => {
-			const role = "role" in m ? String(m.role) : "unknown";
-			const text = messageText(m).slice(0, PER_MESSAGE_CHARS);
-			return text ? `[${role}] ${text}` : `[${role}]`;
-		})
-		.join("\n\n");
-}
-
-export function installHint(pi: ExtensionAPI, getConfig: () => WingmanConfig, editors: EditorManager): void {
-	let lastGoal = "";
+export function installHint(
+	pi: ExtensionAPI,
+	getConfig: () => WingmanConfig,
+	getGoal: () => string,
+	editors: EditorManager,
+): void {
 	const shutdown = new AbortController();
+	/** 每个新 run 自增;生成回来时代际已变说明 hint 过期,丢弃。 */
+	let generation = 0;
 
-	pi.on("session_start", () => {
-		editors.current?.setHint(undefined);
-	});
-
-	pi.on("before_agent_start", (event) => {
-		if (event.messageType === "user") lastGoal = event.prompt;
-		editors.current?.setHint(undefined);
-	});
-
-	pi.on("agent_end", async (event, ctx) => {
-		const config = getConfig().hint;
-		const editor = editors.current;
-		if (!config.enabled || ctx.mode !== "tui" || !editor) return;
-		const model = resolveModel(ctx.modelRegistry, config.model, ctx.model);
-		if (!model) return;
-
-		const transcript = buildTranscript(event.messages as Message[]);
-		if (!transcript) return;
-		const goal = lastGoal ? `User's goal: ${lastGoal}\n\n` : "";
+	const generate = async (registry: ModelRegistry, model: AnyModel, transcript: string, gen: number) => {
+		const goal = getGoal() ? `User's goal: ${getGoal()}\n\n` : "";
 		const result = await completeText(
-			ctx.modelRegistry,
+			registry,
 			model,
 			{
 				systemPrompt: HINT_SYSTEM_PROMPT,
@@ -77,8 +50,23 @@ export function installHint(pi: ExtensionAPI, getConfig: () => WingmanConfig, ed
 			},
 			{ timeoutMs: 10_000, signal: shutdown.signal },
 		);
-		if (!result.ok) return; // 静默降级
-		editor.setHint(result.text.replace(/\s+/g, " ").trim().slice(0, MAX_HINT_CHARS));
+		if (!result.ok || gen !== generation) return; // 静默降级 / 已过期
+		editors.current?.setHint(result.text.replace(/\s+/g, " ").trim().slice(0, MAX_HINT_CHARS));
+	};
+
+	pi.on("before_agent_start", () => {
+		generation++;
+		editors.current?.setHint(undefined);
+	});
+
+	pi.on("agent_end", (event, ctx) => {
+		const config = getConfig().hint;
+		if (!config.enabled || ctx.mode !== "tui" || !editors.current) return;
+		const model = resolveModel(ctx.modelRegistry, config.model, ctx.model);
+		if (!model) return;
+		const transcript = buildDigest(event.messages as DigestMessage[], { maxMessages: 6, perMessageChars: 500 });
+		if (!transcript) return;
+		void generate(ctx.modelRegistry, model, transcript, generation);
 	});
 
 	pi.on("session_shutdown", () => {

@@ -9,7 +9,7 @@
  * undefined);失败一律静默(返回 undefined),不抛进 pi 事件循环。
  */
 
-import { completeText, messageText, type AnyModel, type LlmContext, type ModelRegistry } from "./llm.js";
+import { completeText, messageText, type AnyModel, type Message, type ModelRegistry } from "./llm.js";
 
 export type VerdictLevel = "ok" | "note" | "concern" | "blocker";
 
@@ -21,7 +21,7 @@ export interface Verdict {
 	details: string[];
 }
 
-export type DigestMessage = LlmContext["messages"][number];
+export type DigestMessage = Message;
 
 export interface DigestOptions {
 	maxMessages?: number;
@@ -43,36 +43,25 @@ DETAILS:(仅 concern/blocker 时输出此块,最多 4 条要点,每条一行以 
 
 宁缺毋滥:不确定时选 ok。带 [wingman advisor 标记的消息是顾问自己之前的旁注,不要评论它。`;
 
-function toolCallsOf(message: DigestMessage): { name: string; snippet: string }[] {
-	if (!("content" in message)) return [];
-	const content = (message as { content: unknown }).content;
-	if (!Array.isArray(content)) return [];
-	return content
-		.filter((c): c is { type: string; name?: unknown; arguments?: unknown } => c.type === "toolCall")
-		.map((c) => ({
-			name: typeof c.name === "string" ? c.name : "unknown",
-			snippet: JSON.stringify(c.arguments ?? {}).slice(0, 120),
-		}));
-}
-
 /** 把近期消息压成审计用摘要:role 前缀 + 截断正文 + 工具调用/结果行。 */
 export function buildDigest(messages: DigestMessage[], options: DigestOptions = {}): string {
 	const { maxMessages = 12, perMessageChars = 300 } = options;
 	const lines: string[] = [];
 	for (const message of messages.slice(-maxMessages)) {
-		const role = "role" in message ? String((message as { role: unknown }).role) : "unknown";
-		if (role === "toolResult") {
-			const m = message as { toolName?: unknown; isError?: unknown };
-			const name = typeof m.toolName === "string" ? m.toolName : "tool";
-			const error = m.isError === true ? " ERROR" : "";
-			lines.push(`[toolResult ${name}]${error} ${messageText(message).slice(0, perMessageChars)}`.trimEnd());
+		const text = messageText(message).slice(0, perMessageChars);
+		if (message.role === "toolResult") {
+			const error = message.isError ? " ERROR" : "";
+			lines.push(`[toolResult ${message.toolName}]${error} ${text}`.trimEnd());
 			continue;
 		}
-		const text = messageText(message).slice(0, perMessageChars);
-		const calls = toolCallsOf(message)
-			.map((c) => `→ ${c.name}(${c.snippet})`)
-			.join(" ");
-		lines.push(`[${role}] ${text}${text && calls ? " " : ""}${calls}`.trimEnd());
+		const calls =
+			message.role === "assistant"
+				? message.content
+						.filter((c) => c.type === "toolCall")
+						.map((c) => `→ ${c.name}(${JSON.stringify(c.arguments ?? {}).slice(0, 120)})`)
+						.join(" ")
+				: "";
+		lines.push(`[${message.role}] ${text}${text && calls ? " " : ""}${calls}`.trimEnd());
 	}
 	return lines.join("\n");
 }
@@ -137,13 +126,18 @@ export class Auditor {
 		this.now = options.now ?? Date.now;
 	}
 
+	/** 此刻 run 会放行:不在途且已过冷却。调用方据此决定是否先消费累积的输入。 */
+	get ready(): boolean {
+		return !this.inFlight && this.now() - this.lastRunAt >= this.minIntervalMs;
+	}
+
 	async run(
 		registry: ModelRegistry,
 		model: AnyModel,
 		input: { goal: string; digest: string },
 		options: { timeoutMs?: number; signal?: AbortSignal } = {},
 	): Promise<Verdict | undefined> {
-		if (this.inFlight || this.now() - this.lastRunAt < this.minIntervalMs) return undefined;
+		if (!this.ready) return undefined;
 		this.inFlight = true;
 		this.lastRunAt = this.now();
 		try {

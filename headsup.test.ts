@@ -6,6 +6,11 @@ import { EditorManager } from "./editor.js";
 import { formatToolEvents, HeadsUpView, installHeadsUp } from "./headsup.js";
 import type { ModelRegistry } from "./llm.js";
 
+/** 透传主题:测试只关心文本,不关心颜色。 */
+const theme = { fg: (_color: string, text: string) => text };
+/** 让后台 flush(void,不 await)跑完。 */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
 const finding = {
 	level: "concern" as const,
 	summary: "在错误的文件里改",
@@ -17,7 +22,7 @@ describe("HeadsUpView 三态", () => {
 		const view = new HeadsUpView();
 		expect(view.show(finding)).toBe(true);
 		expect(view.hasPending()).toBe(true);
-		const lines = view.lines(80);
+		const lines = view.lines(80, theme);
 		expect(lines[0]).toContain("✦ Heads up");
 		expect(lines[0]).toContain("在错误的文件里改");
 		expect(lines[1]).toContain("1: 展开");
@@ -28,8 +33,8 @@ describe("HeadsUpView 三态", () => {
 	test("折叠按 1 展开:显示要点与展开态选项", () => {
 		const view = new HeadsUpView();
 		view.show(finding);
-		expect(view.handleKey("1")).toBe("expanded");
-		const text = view.lines(80).join("\n");
+		expect(view.handleKey("1").action).toBe("expanded");
+		const text = view.lines(80, theme).join("\n");
 		expect(text).toContain("改的是 a.ts");
 		expect(text).toContain("1: 知道了");
 		expect(text).toContain("2: 带到主会话");
@@ -39,45 +44,44 @@ describe("HeadsUpView 三态", () => {
 		for (const key of ["0", "2"] as const) {
 			const view = new HeadsUpView();
 			view.show(finding);
-			expect(view.handleKey(key)).toBe("dismissed");
+			expect(view.handleKey(key).action).toBe("dismissed");
 			expect(view.hasPending()).toBe(false);
 			expect(view.show(finding)).toBe(false); // 抑制
 			expect(view.hasPending()).toBe(false);
 		}
 	});
 
-	test("展开按 2 带到主会话:action copied,takeCopyText 为引用块", () => {
+	test("展开按 2 带到主会话:action copied,携带引用块", () => {
 		const view = new HeadsUpView();
 		view.show(finding);
 		view.handleKey("1");
-		expect(view.handleKey("2")).toBe("copied");
+		const result = view.handleKey("2");
 		expect(view.hasPending()).toBe(false);
-		const text = view.takeCopyText();
-		expect(text).toContain("Here is a note offered by a side agent:");
-		expect(text).toContain("> Heads up · 在错误的文件里改");
-		expect(text).toContain("> - 改的是 a.ts");
-		expect(view.takeCopyText()).toBe(""); // 取走即清
+		if (result.action !== "copied") throw new Error(`expected copied, got ${result.action}`);
+		expect(result.text).toContain("Here is a note offered by a side agent:");
+		expect(result.text).toContain("> Heads up · 在错误的文件里改");
+		expect(result.text).toContain("> - 改的是 a.ts");
 	});
 
 	test("展开按 1 知道了:dismiss", () => {
 		const view = new HeadsUpView();
 		view.show(finding);
 		view.handleKey("1");
-		expect(view.handleKey("1")).toBe("dismissed");
+		expect(view.handleKey("1").action).toBe("dismissed");
 		expect(view.hasPending()).toBe(false);
 	});
 
 	test("无 finding 时按键为 none,lines 为空", () => {
 		const view = new HeadsUpView();
-		expect(view.handleKey("1")).toBe("none");
-		expect(view.lines(80)).toEqual([]);
+		expect(view.handleKey("1").action).toBe("none");
+		expect(view.lines(80, theme)).toEqual([]);
 	});
 
 	test("每行可见宽度不超过渲染宽度", () => {
 		const view = new HeadsUpView();
 		view.show({ level: "blocker", summary: "很长".repeat(40), details: ["也很长".repeat(40)] });
 		view.handleKey("1");
-		for (const line of view.lines(24)) {
+		for (const line of view.lines(24, theme)) {
 			expect(visibleWidth(line)).toBeLessThanOrEqual(24);
 		}
 	});
@@ -103,7 +107,7 @@ function makeHarness(verdictText: string, headsupConfig: WingmanConfig["headsup"
 	const editorTexts: string[] = [];
 	let completeCalls = 0;
 	const registry = {
-		find: () => undefined,
+		find: () => ({ id: "p/m" }),
 		complete: async () => {
 			completeCalls++;
 			return { stopReason: "stop", content: [{ type: "text", text: verdictText }] };
@@ -127,7 +131,7 @@ function makeHarness(verdictText: string, headsupConfig: WingmanConfig["headsup"
 		registerCommand: () => {},
 		sendUserMessage: () => {},
 	} as unknown as ExtensionAPI;
-	const config: WingmanConfig = { headsup: headsupConfig, advisor: { enabled: false }, hint: { enabled: true } };
+	const config: WingmanConfig = { headsup: headsupConfig, advisor: { enabled: false }, hint: { enabled: false } };
 	const editors = new EditorManager();
 	return { handlers, widgetCalls, editorTexts, pi, ctx, editors, config, getCompleteCalls: () => completeCalls };
 }
@@ -141,11 +145,12 @@ describe("installHeadsUp 集成", () => {
 			enabled: true,
 			model: "p/m",
 		});
-		installHeadsUp(h.pi, () => h.config, h.editors, { batchSize: 2, debounceMs: 60_000 });
+		installHeadsUp(h.pi, () => h.config, () => "", h.editors, { batchSize: 2, debounceMs: 60_000 });
 		const onToolEnd = h.handlers.get("tool_execution_end")!;
 		await onToolEnd(toolEnd("bash"), h.ctx as never);
 		expect(h.getCompleteCalls()).toBe(0); // 未到阈值
 		await onToolEnd(toolEnd("read"), h.ctx as never);
+		await settle();
 		expect(h.getCompleteCalls()).toBe(1);
 		expect(h.widgetCalls.length).toBe(1);
 		expect(typeof h.widgetCalls[0]).toBe("function");
@@ -161,8 +166,9 @@ describe("installHeadsUp 集成", () => {
 
 	test("ok 不上屏", async () => {
 		const h = makeHarness("VERDICT: ok\nSUMMARY: 正常", { enabled: true, model: "p/m" });
-		installHeadsUp(h.pi, () => h.config, h.editors, { batchSize: 1, debounceMs: 60_000 });
+		installHeadsUp(h.pi, () => h.config, () => "", h.editors, { batchSize: 1, debounceMs: 60_000 });
 		await h.handlers.get("tool_execution_end")!(toolEnd("bash"), h.ctx as never);
+		await settle();
 		expect(h.getCompleteCalls()).toBe(1);
 		expect(h.widgetCalls.length).toBe(0);
 	});
@@ -170,12 +176,14 @@ describe("installHeadsUp 集成", () => {
 	test("同一发现被抑制:第二次审计到相同结论不再上屏", async () => {
 		const h = makeHarness("VERDICT: concern\nSUMMARY: 在错误的文件里改", { enabled: true, model: "p/m" });
 		// minIntervalMs: 0 关掉冷却,否则第二次审计会被冷却拦下,测不到抑制
-		installHeadsUp(h.pi, () => h.config, h.editors, { batchSize: 1, debounceMs: 60_000, minIntervalMs: 0 });
+		installHeadsUp(h.pi, () => h.config, () => "", h.editors, { batchSize: 1, debounceMs: 60_000, minIntervalMs: 0 });
 		const onToolEnd = h.handlers.get("tool_execution_end")!;
 		await onToolEnd(toolEnd("bash"), h.ctx as never);
+		await settle();
 		expect(h.widgetCalls.length).toBe(1);
 		h.editors.headsUpHandler?.("0"); // 忽略 → 抑制
 		await onToolEnd(toolEnd("bash"), h.ctx as never);
+		await settle();
 		expect(h.getCompleteCalls()).toBe(2);
 		expect(h.widgetCalls.length).toBe(2); // 第一次卸载 + 不再重新挂载
 		expect(h.widgetCalls[1]).toBeUndefined();
@@ -183,8 +191,9 @@ describe("installHeadsUp 集成", () => {
 
 	test("未配置模型时不激活(守卫 enabled && model)", async () => {
 		const h = makeHarness("VERDICT: blocker\nSUMMARY: x", { enabled: true });
-		installHeadsUp(h.pi, () => h.config, h.editors, { batchSize: 1, debounceMs: 60_000 });
+		installHeadsUp(h.pi, () => h.config, () => "", h.editors, { batchSize: 1, debounceMs: 60_000 });
 		await h.handlers.get("tool_execution_end")!(toolEnd("bash"), h.ctx as never);
+		await settle();
 		expect(h.getCompleteCalls()).toBe(0);
 	});
 });

@@ -27,21 +27,22 @@ pi --extension ~/github/pi-wingman/index.ts
 ## 命令
 
 - `/wingman` — 查看三个功能的状态与模型
-- `/advisor <provider/model>` — 指定顾问模型；`/advisor off` 关闭
+- `/advisor`、`/hint`、`/headsup` — 各接 `<provider/model>`（开启并设模型，模型须存在）、`on` / `off`（开关，保留已设模型）、无参（看状态）；参数支持补全
+- `/ask-advisor <问题>` — 就当前上下文咨询顾问模型，回答注入对话
 
 ## 配置
 
-`~/.pi/agent/wingman.json`，由命令自动写入，也可手改：
+`<agentDir>/wingman.json`（默认 `~/.pi/agent/wingman.json`），由命令自动写入，也可手改：
 
 ```json
 {
 	"headsup": { "enabled": false },
 	"advisor": { "enabled": true, "model": "openai-codex/gpt-5.5" },
-	"hint": { "enabled": true }
+	"hint": { "enabled": false }
 }
 ```
 
-模型形如 `provider/model-id`；未配置时 hint 用当前模型，advisor/heads-up 保持关闭。
+三个功能默认都关闭：每个功能都会额外调用模型，需要用户自己开启。模型形如 `provider/model-id`；hint 没配模型时用当前模型（`/hint on`），advisor/heads-up 必须配模型才会激活。
 
 ## License
 

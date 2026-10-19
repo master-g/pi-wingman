@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { ADVISOR_MARKER, AdvisorState, formatAdvisorNote, isAdvisorNote } from "./advisor.js";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { ADVISOR_MARKER, AdvisorState, formatAdvisorNote, installAdvisor, isAdvisorNote } from "./advisor.js";
+import type { WingmanConfig } from "./config.js";
 
 describe("isAdvisorNote / formatAdvisorNote", () => {
 	test("标记前缀识别", () => {
@@ -15,42 +17,71 @@ describe("isAdvisorNote / formatAdvisorNote", () => {
 });
 
 describe("AdvisorState 防循环", () => {
-	test("正常 prompt 更新目标", () => {
+	test("普通 user 消息不影响审计", () => {
 		const state = new AdvisorState();
-		state.onBeforeAgentStart("把 M2 做完");
-		expect(state.goal).toBe("把 M2 做完");
-	});
-
-	test("顾问旁注不更新目标,保持原目标", () => {
-		const state = new AdvisorState();
-		state.onBeforeAgentStart("把 M2 做完");
-		state.onBeforeAgentStart(`${ADVISOR_MARKER} · 旁注] note: 顺手改名`);
-		expect(state.goal).toBe("把 M2 做完");
-	});
-
-	test("注入后下一个 turn 跳过审计,之后恢复", () => {
-		const state = new AdvisorState();
+		state.onUserMessage("把 M2 做完");
 		expect(state.shouldAuditTurn()).toBe(true);
-		state.markInjected();
+	});
+
+	test("旁注 user 消息进入 transcript 后,响应它的 turn 跳过审计,之后恢复", () => {
+		const state = new AdvisorState();
+		state.onUserMessage(formatAdvisorNote({ level: "concern", summary: "改错了文件" }));
 		expect(state.shouldAuditTurn()).toBe(false);
 		expect(state.shouldAuditTurn()).toBe(true);
 	});
 
-	test("steer 被中断时,真实 prompt 到达即重置跳过量", () => {
+	test("/ask-advisor 问答注入同样打标跳过", () => {
 		const state = new AdvisorState();
-		state.markInjected();
-		// steer 没产生 turn,用户发来真实 prompt:跳过量应被重置而不是消费在下个 turn
-		state.onBeforeAgentStart("新任务");
-		expect(state.shouldAuditTurn()).toBe(true);
+		state.onUserMessage(`${ADVISOR_MARKER} · 问答] 问:x\n答:y`);
+		expect(state.shouldAuditTurn()).toBe(false);
+	});
+});
+
+describe("installAdvisor 后台审计", () => {
+	function harness(idle: boolean) {
+		const handlers = new Map<string, (event: never, ctx: never) => unknown>();
+		const steered: string[] = [];
+		const notified: string[] = [];
+		const pi = {
+			on: (event: string, handler: never) => handlers.set(event, handler),
+			registerCommand: () => {},
+			sendUserMessage: (text: string) => steered.push(text),
+		} as unknown as ExtensionAPI;
+		const ctx = {
+			modelRegistry: {
+				find: () => ({ id: "p/m" }),
+				complete: async () => ({ stopReason: "stop", content: [{ type: "text", text: "VERDICT: concern\nSUMMARY: 改错了文件" }] }),
+			},
+			isIdle: () => idle,
+			ui: { notify: (text: string) => notified.push(text) },
+		};
+		const config: WingmanConfig = {
+			headsup: { enabled: false },
+			advisor: { enabled: true, model: "p/m" },
+			hint: { enabled: false },
+		};
+		installAdvisor(pi, () => config, () => "目标");
+		const turnEnd = {
+			message: { role: "assistant", content: [{ type: "text", text: "改 a.ts" }] },
+			toolResults: [],
+		} as never;
+		return { onTurnEnd: () => handlers.get("turn_end")!(turnEnd, ctx as never), steered, notified };
+	}
+	const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+	test("turn_end 不等审计;agent 仍在运行时 steer 注入并提示", async () => {
+		const h = harness(false);
+		expect(h.onTurnEnd()).toBeUndefined(); // 同步返回,不把审计 promise 交给 pi
+		await settle();
+		expect(h.notified[0]).toContain("改错了文件");
+		expect(isAdvisorNote(h.steered[0] ?? "")).toBe(true);
 	});
 
-	test("旁注 run 不重置跳过量:turn_end 仍跳过这一次", () => {
-		const state = new AdvisorState();
-		state.onBeforeAgentStart("把 M2 做完");
-		state.markInjected();
-		// steer 触发的 run:before_agent_start 带标记 prompt
-		state.onBeforeAgentStart(`${ADVISOR_MARKER} · 旁注] note: x`);
-		expect(state.shouldAuditTurn()).toBe(false);
-		expect(state.shouldAuditTurn()).toBe(true);
+	test("裁决迟到(agent 已 idle):只提示,不注入", async () => {
+		const h = harness(true);
+		h.onTurnEnd();
+		await settle();
+		expect(h.notified.length).toBe(1);
+		expect(h.steered.length).toBe(0);
 	});
 });

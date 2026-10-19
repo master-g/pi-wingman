@@ -16,22 +16,30 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 export type ModelRegistry = ExtensionContext["modelRegistry"];
 export type AnyModel = NonNullable<ExtensionContext["model"]>;
 export type LlmContext = Parameters<ModelRegistry["complete"]>[1];
+/** pi-ai 的 Message:按 role 可辨识的联合(system/user/assistant/toolResult)。 */
+export type Message = LlmContext["messages"][number];
 
 export type CompleteResult = { ok: true; text: string } | { ok: false; reason: string };
 
-/** 提取消息正文的文本块(鸭式兼容 user/assistant/toolResult)。 */
-export function messageText(message: LlmContext["messages"][number]): string {
-	if (!("content" in message)) return "";
-	const content = (message as { content: unknown }).content;
-	if (typeof content === "string") return content;
-	if (!Array.isArray(content)) return "";
+/** 拼接内容块里的文本块。 */
+function textOf(content: readonly { type: string }[]): string {
 	return content
 		.filter((c): c is { type: "text"; text: string } => c.type === "text")
 		.map((c) => c.text)
 		.join("\n");
 }
 
-/** 解析 "provider/model-id"；缺参或找不到时回退 fallback（通常是当前模型）。 */
+/** 提取消息正文的文本块;事件里的 AgentMessage 可能混入无 content 的自定义消息,故守卫数组。 */
+export function messageText(message: Message): string {
+	const { content } = message;
+	if (typeof content === "string") return content;
+	return Array.isArray(content) ? textOf(content) : "";
+}
+
+/**
+ * 解析 "provider/model-id"；缺参或找不到时回退 fallback（hint 传当前模型；
+ * advisor/heads-up 传 undefined，拼错模型时不激活而非悄悄用主模型）。
+ */
 export function resolveModel(
 	registry: ModelRegistry,
 	spec: string | undefined,
@@ -40,8 +48,7 @@ export function resolveModel(
 	if (!spec) return fallback;
 	const slash = spec.indexOf("/");
 	if (slash <= 0 || slash === spec.length - 1) return fallback;
-	const found = registry.find(spec.slice(0, slash), spec.slice(slash + 1));
-	return (found as AnyModel | undefined) ?? fallback;
+	return registry.find(spec.slice(0, slash), spec.slice(slash + 1)) ?? fallback;
 }
 
 /**
@@ -63,11 +70,7 @@ export async function completeText(
 		if (response.stopReason !== "stop") {
 			return { ok: false, reason: `stopReason=${response.stopReason}` };
 		}
-		const text = response.content
-			.filter((c): c is { type: "text"; text: string } => c.type === "text")
-			.map((c) => c.text)
-			.join("\n")
-			.trim();
+		const text = textOf(response.content).trim();
 		if (!text) return { ok: false, reason: "empty response" };
 		return { ok: true, text };
 	} catch (error) {

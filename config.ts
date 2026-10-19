@@ -1,13 +1,14 @@
 /**
- * config.ts — wingman 配置：读写 ~/.pi/agent/wingman.json。
+ * config.ts — wingman 配置：读写 <agentDir>/wingman.json（默认 ~/.pi/agent）。
  *
- * 三个功能各自独立开关；模型形如 "provider/model-id"。未配置模型时
- * 各模块自行回退：hint 用当前模型，advisor/heads-up 保持关闭。
+ * 三个功能各自独立开关，默认全关（旁路调用都有成本，须用户显式开启）；
+ * 模型形如 "provider/model-id"。未配置模型时各模块自行回退：hint 用当前
+ * 模型，advisor/heads-up 保持关闭。
  */
 
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { homedir } from "node:os";
 
 export interface FeatureConfig {
 	enabled: boolean;
@@ -23,11 +24,11 @@ export interface WingmanConfig {
 export const DEFAULT_CONFIG: WingmanConfig = {
 	headsup: { enabled: false },
 	advisor: { enabled: false },
-	hint: { enabled: true },
+	hint: { enabled: false },
 };
 
 export function configPath(): string {
-	return join(homedir(), ".pi", "agent", "wingman.json");
+	return join(getAgentDir(), "wingman.json");
 }
 
 function mergeFeature(base: FeatureConfig, override: unknown): FeatureConfig {
@@ -40,9 +41,10 @@ function mergeFeature(base: FeatureConfig, override: unknown): FeatureConfig {
 }
 
 export function loadConfig(path: string = configPath()): WingmanConfig {
-	let raw: Partial<WingmanConfig> = {};
+	let raw: Partial<Record<keyof WingmanConfig, unknown>> = {};
 	try {
-		raw = JSON.parse(readFileSync(path, "utf8"));
+		const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
+		if (typeof parsed === "object" && parsed !== null) raw = parsed;
 	} catch {
 		// 文件不存在或损坏时回退默认配置
 	}
@@ -65,8 +67,9 @@ export function featureLine(name: string, feature: FeatureConfig): string {
 }
 
 /**
- * 应用配置命令参数:"off" 关闭,"provider/model" 开启并设模型,空参只读。
- * 返回状态行;调用方负责 saveConfig 与后续副作用(如编辑器同步)。
+ * 应用配置命令参数:"off" 关闭、"on" 重新开启(都保留已设模型),
+ * "provider/model" 开启并设模型,空参只读。返回状态行;模型校验、
+ * saveConfig 与后续副作用(如编辑器同步)由调用方负责。
  */
 export function applyFeatureArg(
 	config: WingmanConfig,
@@ -74,8 +77,10 @@ export function applyFeatureArg(
 	arg: string,
 ): string {
 	const value = arg.trim();
-	if (value) {
-		config[feature] = value === "off" ? { enabled: false } : { enabled: true, model: value };
+	if (value === "off" || value === "on") {
+		config[feature] = { ...config[feature], enabled: value === "on" };
+	} else if (value) {
+		config[feature] = { enabled: true, model: value };
 	}
 	return featureLine(feature, config[feature]);
 }
