@@ -35,6 +35,16 @@ describe("applyFeatureArg", () => {
 		expect(config.headsup).toEqual({ enabled: true, model: "anthropic/claude-haiku" });
 		expect(line).toContain("anthropic/claude-haiku");
 	});
+
+	test("effort 随模型设置,on/off 保留,换模型不带 effort 即清空", () => {
+		const config = fresh();
+		expect(applyFeatureArg(config, "advisor", "openai/gpt-5", "high")).toBe("advisor: on (openai/gpt-5 · high)");
+		applyFeatureArg(config, "advisor", "off");
+		applyFeatureArg(config, "advisor", "on");
+		expect(config.advisor).toEqual({ enabled: true, model: "openai/gpt-5", effort: "high" });
+		applyFeatureArg(config, "advisor", "openai/gpt-5-mini");
+		expect(config.advisor.effort).toBeUndefined();
+	});
 });
 
 describe("loadConfig", () => {
@@ -45,5 +55,13 @@ describe("loadConfig", () => {
 			writeFileSync(path, content);
 			expect(loadConfig(path)).toEqual(DEFAULT_CONFIG);
 		}
+	});
+
+	test("合法 effort 读入,非法 effort 丢弃", () => {
+		const path = join(mkdtempSync(join(tmpdir(), "wingman-")), "wingman.json");
+		writeFileSync(path, JSON.stringify({ advisor: { enabled: true, model: "p/m", effort: "low" }, hint: { effort: "turbo" } }));
+		const config = loadConfig(path);
+		expect(config.advisor.effort).toBe("low");
+		expect(config.hint.effort).toBeUndefined();
 	});
 });

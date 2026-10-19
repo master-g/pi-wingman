@@ -27,7 +27,7 @@ pi --extension ~/github/pi-wingman/index.ts
 ## 命令
 
 - `/wingman` — 查看三个功能的状态与模型
-- `/wingman advisor|hint|headsup` — 各接 `<provider/model>`（开启并设模型，模型须存在）、`on` / `off`（开关，保留已设模型）、无参（看状态）；参数支持补全
+- `/wingman advisor|hint|headsup` — 不带值时弹出 pi 的模型选择器（同 `/model`，可搜索），选完模型再选思考强度（同 `/thinking`，Esc 跳过）；也可直接写 `<provider/model> [effort]`（模型须存在，effort 须是该模型支持的档位）、`on` / `off`（开关，保留已设模型与 effort）；参数支持补全
 - `/ask-advisor <问题>` — 就当前上下文咨询顾问模型，回答注入对话
 
 ## 配置
@@ -37,12 +37,12 @@ pi --extension ~/github/pi-wingman/index.ts
 ```json
 {
 	"headsup": { "enabled": false },
-	"advisor": { "enabled": true, "model": "openai-codex/gpt-5.5" },
+	"advisor": { "enabled": true, "model": "openai-codex/gpt-5.5", "effort": "low" },
 	"hint": { "enabled": false }
 }
 ```
 
-三个功能默认都关闭：每个功能都会额外调用模型，需要用户自己开启。模型形如 `provider/model-id`；hint 没配模型时用当前模型（`/wingman hint on`），advisor/heads-up 必须配模型才会激活。
+三个功能默认都关闭：每个功能都会额外调用模型，需要用户自己开启。模型形如 `provider/model-id`；hint 没配模型时用当前模型（`/wingman hint on`），advisor/heads-up 必须配模型才会激活。`effort` 可选（off / minimal / low / medium / high / xhigh / max，按模型支持的档位校正），不设则不开推理。advisor/heads-up 在后台跑，单次调用超时 60 秒；hint 要求快，超时 10 秒，高 effort 多半超时，超时就不出 hint。
 
 ## License
 

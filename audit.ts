@@ -9,7 +9,7 @@
  * undefined);失败一律静默(返回 undefined),不抛进 pi 事件循环。
  */
 
-import { completeText, messageText, type AnyModel, type Message, type ModelRegistry } from "./llm.js";
+import { completeText, messageText, type AnyModel, type CallOptions, type Message, type ModelRegistry } from "./llm.js";
 
 export type VerdictLevel = "ok" | "note" | "concern" | "blocker";
 
@@ -92,7 +92,7 @@ export async function runAudit(
 	registry: ModelRegistry,
 	model: AnyModel,
 	input: { goal: string; digest: string },
-	options: { timeoutMs?: number; signal?: AbortSignal } = {},
+	options: CallOptions = {},
 ): Promise<Verdict | undefined> {
 	const goal = input.goal ? `用户目标:${input.goal}\n\n` : "";
 	const result = await completeText(
@@ -108,7 +108,7 @@ export async function runAudit(
 				},
 			],
 		},
-		{ timeoutMs: options.timeoutMs ?? 15_000, signal: options.signal },
+		options,
 	);
 	if (!result.ok) return undefined;
 	return parseVerdict(result.text);
@@ -135,7 +135,7 @@ export class Auditor {
 		registry: ModelRegistry,
 		model: AnyModel,
 		input: { goal: string; digest: string },
-		options: { timeoutMs?: number; signal?: AbortSignal } = {},
+		options: CallOptions = {},
 	): Promise<Verdict | undefined> {
 		if (!this.ready) return undefined;
 		this.inFlight = true;

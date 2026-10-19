@@ -9,7 +9,9 @@ function fakeRegistry(overrides: {
 }): ModelRegistry {
 	return {
 		find: overrides.find ?? (() => undefined),
-		complete: overrides.complete ?? (async () => ({ stopReason: "stop", content: [] })),
+		streamSimple: (...args: unknown[]) => ({
+			result: () => (overrides.complete ?? (async () => ({ stopReason: "stop", content: [] })))(...args),
+		}),
 	} as unknown as ModelRegistry;
 }
 
@@ -72,6 +74,19 @@ describe("completeText", () => {
 			{ messages: [] },
 		);
 		expect(r).toEqual({ ok: false, reason: "empty response" });
+	});
+
+	test("effort 按模型档位校正后作为 reasoning 传入,未设或 off 不传", async () => {
+		const seen: unknown[] = [];
+		const capture = registry(async (_model, _context, options) => {
+			seen.push((options as { reasoning?: string }).reasoning);
+			return { stopReason: "stop", content: [{ type: "text", text: "x" }] };
+		});
+		const reasoningModel = { id: "r", reasoning: true } as unknown as AnyModel;
+		for (const effort of ["max", "low", "off", undefined] as const) {
+			await completeText(capture, reasoningModel, { messages: [] }, { effort });
+		}
+		expect(seen).toEqual(["high", "low", undefined, undefined]);
 	});
 
 	test("抛异常不穿透,转为 ok:false", async () => {

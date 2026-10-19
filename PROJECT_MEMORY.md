@@ -10,16 +10,18 @@
 - 命名 pi-wingman：npm 上 pi-sidekick/pi-radar/pi-nudge/pi-whisper 均已被 pi 生态占用（sidekick 还是第二模型委派，概念撞车），@master.g/pi-wingman 空闲——2026-10-19 逐个 `npm view` 核实。
 - heads-up 与 advisor 共享 audit.ts 审计管线，仅输出通道不同：heads-up 只 notify/widget 告警给用户，advisor 以 `deliverAs: "steer"` 注入主 agent——参照 oh-my-pi advisor 设计，用户确认。
 - hint 的 Tab/Enter 接受交互走 CustomEditor 子类（`ctx.ui.setEditorComponent` + 按键转发基类），对齐 Claude Code prompt suggestions：Tab 填入可编辑、Enter 直接发送、任意按键清除——依据 pi-tui types 与 border-status-editor.ts 示例。
-- 旁路模型调用统一经 llm.ts 封装 `ctx.modelRegistry.complete()`/`streamSimple()`;idle 时 `ctx.signal` 不存在,用自有 AbortController,session_shutdown 统一 abort——依据 extensions.md 与 model-registry.d.ts。
+- 旁路模型调用统一经 llm.ts 封装 `ctx.modelRegistry.streamSimple().result()`(effort 只能经 provider 中立的 `reasoning` 传,`complete()` 的选项没有;不传即关推理);idle 时 `ctx.signal` 不存在,用自有 AbortController,session_shutdown 统一 abort——依据 extensions.md 与 model-registry.d.ts。
 - 骨架/命令可无头验证:print 模式 `pi --no-extensions -e <ext> --no-session -p "/cmd args"` 会加载扩展并派发斜杠命令(加载错误直接打印),但 `ctx.ui.notify` 无可见输出,验证处理器要用文件写入等副作用探针——2026-10-19 用 throw 探针+文件探针双向核实。
 - heads-up 交互对齐 Claude Code 真实样例:widget 三态(折叠一句话+1/2/0 选项 → 展开要点 → 按 2 用 setEditorText 拷进输入框),不自动注入主 agent;数字键仅编辑器为空时捕获,且与 hint 共用一个 WingmanEditor(setEditorComponent 全局限一个)——2026-10-19 用户提供的 claude-code 实际样例。
 - 无头单测 CustomEditor:mock `tui.terminal.{rows,cols}`(render 读 terminal.rows)与 `theme.borderColor`(构造函数赋值)即可跑通 render/handleInput/onSubmit——2026-10-19 hint.test.ts 逐错误试出。
 - 交互验收可用 pty 烟测:`( sleep; printf 'hi\r'; sleep 30; printf '\t'; … ) | script -q log pi -e ./index.ts --no-session`,从日志找 ghost 文本与新 turn 的 Working spinner 佐证;timeout 强杀收尾——2026-10-19 M1 实测有效。
 - 激活语义:三功能默认全关(旁路有成本,用户定);advisor/heads-up 必须 enabled && model 且模型可解析才激活,拼错也不回退当前模型;hint 无 model 时回退当前模型(`/wingman hint on`)——2026-10-19 审计修复。
-- 配置入口集中:只有 `/wingman [advisor|hint|headsup] [<model>|on|off]`(用户要求合并,原 /advisor /hint /headsup 已删),`<model>` 先 registry 校验,on/off 保留模型,共用 applyFeatureArg;编辑器安装归 EditorManager,条件 `hint.enabled || headsup.enabled`——2026-10-19。
+- 配置入口集中:只有 `/wingman [advisor|hint|headsup] [<model> [effort]|on|off]`(用户要求合并,原 /advisor /hint /headsup 已删),`<model>` 先 registry 校验,effort 须在 getSupportedThinkingLevels 内,换模型清 effort,on/off 都保留,共用 applyFeatureArg;编辑器安装归 EditorManager,条件 `hint.enabled || headsup.enabled`——2026-10-19。
 - heads-up 旁路管线的唯一观测口是 `WINGMAN_DEBUG=1`(追加写 /tmp/wingman-debug.log):pty 烟测靠它确认了聚合/去抖两路 flush 与 ok/note 门控静默;真实 concern 上屏未实测(审计总能正确判 ok/note,难以稳定诱发)——2026-10-19。
 - /new、/resume、/fork、reload 都重建 runtime 并重新执行扩展工厂(loader.js initializeExtension),工厂内状态天然按会话隔离,session_start 里重置状态是多余的——2026-10-19 读 SDK dist 核实。
 - advisor 防循环按注入文本识别:message_end 见带 ADVISOR_MARKER 的 user 消息→下一 turn_end 跳过;审计后台跑,裁决回来时 `ctx.isIdle()` 则只 notify 不 steer(顾问不自行唤醒 agent)——2026-10-19 用户决定。
+- 复用 pi 的 ModelSelectorComponent 要 ModelRuntime,扩展只有 ModelRegistry:组件只调 getAvailableSnapshot/getModel/getError/refresh,registry 一一转发,故用 4 方法适配对象 `as unknown as ModelRuntime`;组件需 initTheme(TUI 里已初始化),失败回退手输——2026-10-19 读 model-selector.js 并用真组件无头跑通。
+- 扩展可 import `@earendil-works/pi-ai`(loader 别名到 compat 入口,packages.md 要求 peerDependencies 写 "*"):effort 档位用 getSupportedThinkingLevels/clampThinkingLevel——2026-10-19。
 - CustomEditor 构造参数里的 keybindings 是 app 键位;输入键位(tui.input.tab/submit)要用 pi-tui 的 `getKeybindings()`,与基类编辑器一致——2026-10-19 读 editor.js 核实。
 
 ## 失败尝试
@@ -32,10 +34,10 @@
 
 <!-- 整块改写：分支、验证命令及实际结果、停在何处；接下来做什么。 -->
 
-- [2026-10-19] main:0.0.1 已上线 npm(11 文件)并被 pi.dev 自动收录(`pi-package` 关键词);随后把配置命令合并进 `/wingman <feature> <arg>`,58 测试过、typecheck 干净,补全与 handler 用假 pi/ctx 脚本核对(含写盘),未推送、未发版。
+- [2026-10-19] main:命令合并为 `/wingman <feature> <arg>`(9e6cb31)后又加了交互选模型 + effort:新 picker.ts、config.effort、llm 改 streamSimple、advisor/headsup 超时 60s;61 测试过、typecheck 干净,真组件用假 tui 无头跑通(搜索选中/Esc/无推理模型跳过 effort),未在真实 pi TUI 里试,未推送。
 
 ## 下次运行
 
 <!-- 整块改写：接下来的任务和优先级，含仍受阻的项。 -->
 
-- [2026-10-19] 1) 用户确认后推送,命令合并属破坏性改动,发 0.0.2 前先确认;2) 真实 pi 里试 `/wingman` 多段补全;3) 真实 pi 里试用:后台 advisor 的 steer 时机与 idle 只提示体感、hint 过期丢弃、heads-up widget 主题色与数字键手感(WINGMAN_DEBUG=1,日志在 os.tmpdir())。
+- [2026-10-19] 1) 真实 pi TUI 里试 `/wingman advisor` 两步选择器与多段补全;2) 用户确认后推送,两次命令改动都不兼容 0.0.1,发 0.0.2 前确认;3) 真实 pi 里试用 advisor steer 时机、hint 过期丢弃、heads-up 主题色与数字键(WINGMAN_DEBUG=1)。

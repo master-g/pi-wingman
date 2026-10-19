@@ -10,10 +10,10 @@ const fakeModel = { id: "audit-model" } as unknown as AnyModel;
 function registryReturning(text: string): ModelRegistry {
 	return {
 		find: () => undefined,
-		complete: async () => ({
+		streamSimple: () => ({ result: async () => ({
 			stopReason: "stop",
 			content: [{ type: "text", text }],
-		}),
+		}) }),
 	} as unknown as ModelRegistry;
 }
 
@@ -122,7 +122,7 @@ describe("Auditor 冷却与互斥", () => {
 		let calls = 0;
 		const registry = {
 			find: () => undefined,
-			complete: async () => {
+			streamSimple: () => ({ result: async () => {
 				calls++;
 				if (calls === 1) {
 					return new Promise((r) => {
@@ -130,7 +130,7 @@ describe("Auditor 冷却与互斥", () => {
 					});
 				}
 				return { stopReason: "stop", content: [{ type: "text", text: "VERDICT: ok" }] };
-			},
+			} }),
 		} as unknown as ModelRegistry;
 		const auditor = new Auditor({ minIntervalMs: 0, now: () => 0 });
 		const first = auditor.run(registry, fakeModel, input);
@@ -144,9 +144,9 @@ describe("Auditor 冷却与互斥", () => {
 	test("模型调用失败返回 undefined 且解除互斥", async () => {
 		const failing = {
 			find: () => undefined,
-			complete: async () => {
+			streamSimple: () => ({ result: async () => {
 				throw new Error("boom");
-			},
+			} }),
 		} as unknown as ModelRegistry;
 		const auditor = new Auditor({ minIntervalMs: 0, now: () => 0 });
 		expect(await auditor.run(failing, fakeModel, input)).toBeUndefined();

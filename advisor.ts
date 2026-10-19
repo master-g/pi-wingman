@@ -72,7 +72,8 @@ export function installAdvisor(pi: ExtensionAPI, getConfig: () => WingmanConfig,
 			registry,
 			model,
 			{ goal: getGoal(), digest },
-			{ timeoutMs: 15_000, signal: shutdown.signal },
+			// 后台审计不卡主流程,超时放宽给高 effort 留余地
+			{ timeoutMs: 60_000, signal: shutdown.signal, effort: getConfig().advisor.effort },
 		);
 		if (!verdict || verdict.level === "ok") return;
 		ctx.ui.notify(`advisor [${verdict.level}] ${verdict.summary}`, NOTIFY_TYPE[verdict.level]);
@@ -144,7 +145,7 @@ export function installAdvisor(pi: ExtensionAPI, getConfig: () => WingmanConfig,
 						},
 					],
 				},
-				{ timeoutMs: 30_000, signal: shutdown.signal },
+				{ timeoutMs: 60_000, signal: shutdown.signal, effort: config.effort },
 			);
 			if (!result.ok) {
 				ctx.ui.notify(`advisor 调用失败:${result.reason}`, "error");

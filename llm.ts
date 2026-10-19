@@ -1,7 +1,8 @@
 /**
  * llm.ts — 旁路模型调用封装。
  *
- * 经 ctx.modelRegistry.complete() 调 provider 模型：
+ * 经 ctx.modelRegistry.streamSimple() 调 provider 模型（provider 中立的选项里
+ * 才有 reasoning，complete() 没有）：
  * - resolveModel(registry, "provider/model-id") 解析配置串，未配置/找不到时
  *   回退当前模型；
  * - completeText() 统一超时与 AbortController（idle 时 ctx.signal 不存在，
@@ -11,13 +12,17 @@
  * 失败一律返回 { ok: false, reason }，不抛异常进 pi 事件循环。
  */
 
+import { clampThinkingLevel, type ModelThinkingLevel } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 export type ModelRegistry = ExtensionContext["modelRegistry"];
 export type AnyModel = NonNullable<ExtensionContext["model"]>;
-export type LlmContext = Parameters<ModelRegistry["complete"]>[1];
+export type LlmContext = Parameters<ModelRegistry["streamSimple"]>[1];
 /** pi-ai 的 Message:按 role 可辨识的联合(system/user/assistant/toolResult)。 */
 export type Message = LlmContext["messages"][number];
+
+/** effort 是思考强度,按模型支持的档位校正;未设或 "off" 不开推理。 */
+export type CallOptions = { timeoutMs?: number; signal?: AbortSignal; effort?: ModelThinkingLevel };
 
 export type CompleteResult = { ok: true; text: string } | { ok: false; reason: string };
 
@@ -59,14 +64,17 @@ export async function completeText(
 	registry: ModelRegistry,
 	model: AnyModel,
 	context: LlmContext,
-	options: { timeoutMs?: number; signal?: AbortSignal } = {},
+	options: CallOptions = {},
 ): Promise<CompleteResult> {
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 15_000);
 	const onOuterAbort = () => controller.abort();
 	options.signal?.addEventListener("abort", onOuterAbort, { once: true });
 	try {
-		const response = await registry.complete(model, context, { signal: controller.signal });
+		const effort = options.effort && clampThinkingLevel(model, options.effort);
+		const response = await registry
+			.streamSimple(model, context, { signal: controller.signal, reasoning: effort === "off" ? undefined : effort })
+			.result();
 		if (response.stopReason !== "stop") {
 			return { ok: false, reason: `stopReason=${response.stopReason}` };
 		}

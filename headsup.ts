@@ -217,7 +217,7 @@ export function installHeadsUp(
 			ctx.modelRegistry,
 			model,
 			{ goal: getGoal(), digest: formatToolEvents(events) },
-			{ timeoutMs: 15_000, signal: shutdown.signal },
+			{ timeoutMs: 60_000, signal: shutdown.signal, effort: config.effort },
 		);
 		debug(`verdict: ${verdict ? `${verdict.level} ${verdict.summary}` : "(调用失败/跳过)"}`);
 		if (!verdict || (verdict.level !== "concern" && verdict.level !== "blocker")) return;

@@ -108,10 +108,10 @@ function makeHarness(verdictText: string, headsupConfig: WingmanConfig["headsup"
 	let completeCalls = 0;
 	const registry = {
 		find: () => ({ id: "p/m" }),
-		complete: async () => {
+		streamSimple: () => ({ result: async () => {
 			completeCalls++;
 			return { stopReason: "stop", content: [{ type: "text", text: verdictText }] };
-		},
+		} }),
 	} as unknown as ModelRegistry;
 	const ctx = {
 		mode: "tui",

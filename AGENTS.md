@@ -10,8 +10,9 @@
 ## 导航
 
 - 单包扁平仓库：`index.ts` 入口（命令注册 + 配置加载），`config.ts` 读写 `~/.pi/agent/wingman.json`。
-- 共享层：`llm.ts` 旁路模型调用（`ctx.modelRegistry.complete()`，统一超时/AbortController），`audit.ts` 审计管线（digest → Verdict）。
+- 共享层：`llm.ts` 旁路模型调用（`ctx.modelRegistry.streamSimple()` 以便传 effort，统一超时/AbortController），`audit.ts` 审计管线（digest → Verdict）。
 - `editor.ts`：全扩展唯一的 `WingmanEditor`（`setEditorComponent` 只能装一个），hint 的 ghost 行与 heads-up 的数字键共用；`EditorManager` 在 `hint.enabled || headsup.enabled` 时安装。
+- `picker.ts`：`/wingman <feature>` 不带值时复用 pi 的 `ModelSelectorComponent` / `ThinkingSelectorComponent`。
 - 功能层：`hint.ts`（M1，CustomEditor ghost text，Tab 填入 / Enter 发送）、`advisor.ts`（M2，turn 审计 + `deliverAs: "steer"` 注入）、`headsup.ts`（M3，去抖审计 + notify/widget 告警）。heads-up 与 advisor 复用 audit.ts，只差输出通道。
 
 ## 命令

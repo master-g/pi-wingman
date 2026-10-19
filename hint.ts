@@ -48,7 +48,8 @@ export function installHint(
 					},
 				],
 			},
-			{ timeoutMs: 10_000, signal: shutdown.signal },
+			// hint 要快:高 effort 多半超时,失败即无 hint
+			{ timeoutMs: 10_000, signal: shutdown.signal, effort: getConfig().hint.effort },
 		);
 		if (!result.ok || gen !== generation) return; // 静默降级 / 已过期
 		editors.current?.setHint(result.text.replace(/\s+/g, " ").trim().slice(0, MAX_HINT_CHARS));

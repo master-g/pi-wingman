@@ -50,7 +50,7 @@ describe("installAdvisor 后台审计", () => {
 		const ctx = {
 			modelRegistry: {
 				find: () => ({ id: "p/m" }),
-				complete: async () => ({ stopReason: "stop", content: [{ type: "text", text: "VERDICT: concern\nSUMMARY: 改错了文件" }] }),
+				streamSimple: () => ({ result: async () => ({ stopReason: "stop", content: [{ type: "text", text: "VERDICT: concern\nSUMMARY: 改错了文件" }] }) }),
 			},
 			isIdle: () => idle,
 			ui: { notify: (text: string) => notified.push(text) },
