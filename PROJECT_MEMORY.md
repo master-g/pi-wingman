@@ -34,10 +34,10 @@
 
 <!-- 整块改写：分支、验证命令及实际结果、停在何处；接下来做什么。 -->
 
-- [2026-10-19] main:命令合并为 `/wingman <feature> <arg>`(9e6cb31)后又加了交互选模型 + effort:新 picker.ts、config.effort、llm 改 streamSimple、advisor/headsup 超时 60s;61 测试过、typecheck 干净,真组件用假 tui 无头跑通(搜索选中/Esc/无推理模型跳过 effort),未在真实 pi TUI 里试,未推送。
+- [2026-10-19] main:命令合并为 `/wingman <feature> <arg>` + 交互选模型/effort(picker.ts、config.effort、llm 改 streamSimple、advisor/headsup 超时 60s)已推送;发布 0.0.2(12 文件),61 测试过、typecheck 干净;选择器只用假 tui 无头跑通,未在真实 pi TUI 里试。
 
 ## 下次运行
 
 <!-- 整块改写：接下来的任务和优先级，含仍受阻的项。 -->
 
-- [2026-10-19] 1) 真实 pi TUI 里试 `/wingman advisor` 两步选择器与多段补全;2) 用户确认后推送,两次命令改动都不兼容 0.0.1,发 0.0.2 前确认;3) 真实 pi 里试用 advisor steer 时机、hint 过期丢弃、heads-up 主题色与数字键(WINGMAN_DEBUG=1)。
+- [2026-10-19] 1) 真实 pi TUI 里试 `/wingman advisor` 两步选择器与多段补全;2) 真实 pi 里试 advisor steer 时机、hint 过期丢弃、heads-up 主题色与数字键(WINGMAN_DEBUG=1);3) 观察高 effort 下 60s 超时是否够。

@@ -10,7 +10,7 @@
 | **advisor** | oh-my-pi advisor | 指定一个模型当顾问，读主 agent 的每个 turn，以 steer 消息内联注入便签（aside / concern / blocker）让主 agent 纠偏 |
 | **hint** | Claude Code prompt suggestions | 任务结束后按上下文与目标生成下一步 prompt，输入框 ghost text 呈现：Tab 填入、Enter 直接发送 |
 
-> 状态：骨架（v0.0.1）。命令与配置已可用；三个控制器按 M1 hint → M2 advisor → M3 heads-up 接入。
+> 状态：早期版本（v0.0.2）。hint、advisor、heads-up 三个功能均已实现，默认关闭，尚在试用打磨中。
 
 ## 安装
 
