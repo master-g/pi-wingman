@@ -1,15 +1,15 @@
 /**
  * index.ts — pi-wingman 入口。
  *
- * 当前为骨架：注册命令与配置。三个功能控制器在后续里程碑接入：
- *   M1 hint.ts（下一步 prompt 建议，CustomEditor ghost text）
- *   M2 advisor.ts（指定模型顾问，turn 审计 + steer 注入）
- *   M3 headsup.ts（工作中自动审计，notify + widget 告警）
- * llm.ts / audit.ts 是三者共享的旁路调用与审计管线。
+ * M1 hint.ts（下一步 prompt 建议，WingmanEditor ghost text）已接入。
+ * 后续里程碑：M2 advisor.ts（turn 审计 + steer 注入）、M3 headsup.ts
+ * （去抖审计 + widget 三态交互）。llm.ts 是共享旁路调用层，audit.ts
+ * 是 M2/M3 共享的审计管线。
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { loadConfig, saveConfig, type WingmanConfig } from "./config.js";
+import { installHint } from "./hint.js";
 
 function featureLine(name: string, f: { enabled: boolean; model?: string }): string {
 	const state = f.enabled ? `on (${f.model ?? "current model"})` : "off";
@@ -51,4 +51,6 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_start", async () => {
 		config = loadConfig();
 	});
+
+	installHint(pi, () => config);
 }

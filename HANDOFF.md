@@ -35,10 +35,11 @@ heads-up 与 advisor 复用 `audit.ts` 审计管线（digest → Verdict），�
 
 ## 里程碑与验收
 
-**M1 hint**（当前任务）
-1. `llm.ts`：`resolveModel(registry, "provider/model-id")` + `complete()` 包装（统一超时、AbortController）；未配置模型时回退当前模型。
-2. `hint.ts`：`agent_end` 触发生成（输入：用户目标 + 最近工作摘要；输出 1 条 ≤120 字符建议）；`HintEditor extends CustomEditor` 实现 ghost text 与 Tab/Enter/清除状态机；`session_start` / `before_agent_start` 清除 pending hint。
-3. 验收：`pi --extension ./index.ts` 真实会话中 Tab 填入、Enter 发送、打字清除均正常；`npm run typecheck` + `bun test` 通过。
+**M1 hint**(已完成 2026-10-19)
+1. `llm.ts`:resolveModel + completeText(超时/AbortController/失败返回结果对象),7 个单测。
+2. `hint.ts`:WingmanEditor(hint 与 M3 共用)ghost 行 + Tab/Enter/清除状态机,5 个单测;agent_end 生成,静默降级。
+3. 验收通过:tsc 干净、12 测试过、pty 烟测(script + printf 注入按键)实测 ghost 渲染与 Tab→Enter 提交(新 turn 启动)。
+4. 学到的接口事实:无头测 CustomEditor 需 mock `tui.terminal.{rows,cols}` 与 `theme.borderColor`;ghost 用"输入行下方插一行"而非内联覆盖(shortcut 注释在代码里);hint 生成延迟 = agent_end 后几秒,用户已打字时 getText() 守卫自动不显示。
 
 **M2 advisor**：`audit.ts`（buildDigest + runAudit，冷却互斥，Verdict: ok/note/concern/blocker）→ `advisor.ts`（turn_end 审计 → steer 注入，注入消息打标防循环；`/ask-advisor <问题>` 手动咨询）。
 
@@ -61,8 +62,7 @@ heads-up 与 advisor 复用 `audit.ts` 审计管线（digest → Verdict），�
 
 ## 未验证点（实现时确认）
 
-- CustomEditor 拦截 Tab/Enter 的转发细节与提交机制(M1 第一个手动场景试出)。
-- heads-up 数字键与正常输入的边界:仅编辑器为空时捕获 0/1/2;用户打字中途弹出的 heads-up 不得抢键盘。
+- heads-up 数字键与正常输入的边界:仅编辑器为空时捕获 0/1/2;用户打字中途弹出的 heads-up 不得抢键盘(M3 试出)。
 - steer 注入在高频 turn 下的体感与成本（M2 用冷却 + 用户自选便宜模型兜底）。
 
 ## 证据锚点
