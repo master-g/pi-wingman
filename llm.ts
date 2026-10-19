@@ -19,6 +19,18 @@ export type LlmContext = Parameters<ModelRegistry["complete"]>[1];
 
 export type CompleteResult = { ok: true; text: string } | { ok: false; reason: string };
 
+/** 提取消息正文的文本块(鸭式兼容 user/assistant/toolResult)。 */
+export function messageText(message: LlmContext["messages"][number]): string {
+	if (!("content" in message)) return "";
+	const content = (message as { content: unknown }).content;
+	if (typeof content === "string") return content;
+	if (!Array.isArray(content)) return "";
+	return content
+		.filter((c): c is { type: "text"; text: string } => c.type === "text")
+		.map((c) => c.text)
+		.join("\n");
+}
+
 /** 解析 "provider/model-id"；缺参或找不到时回退 fallback（通常是当前模型）。 */
 export function resolveModel(
 	registry: ModelRegistry,

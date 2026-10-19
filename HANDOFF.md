@@ -14,7 +14,7 @@
 | 功能 | 参照 | 行为 | 输出通道 |
 |---|---|---|---|
 | heads-up | Claude Code heads-up | 主 agent 工作时后台去抖审计近期动作,提前发现潜在问题 | 只给用户:widget 三态交互(折叠→展开→拷进输入框),不自动注入主 agent |
-| advisor | oh-my-pi advisor | 用户指定的模型读主 agent 每个 turn，产出 aside/concern/blocker | 注入主 agent：`pi.sendUserMessage(note, { deliverAs: "steer" })`，同时 notify 用户 |
+| advisor | oh-my-pi advisor | 用户指定的模型读主 agent 每个 turn,产出 note/concern/blocker | 注入主 agent:`pi.sendUserMessage(note, { deliverAs: "steer" })`,同时 notify 用户 |
 | hint | Claude Code prompt suggestions | `agent_end` 后按目标+上下文生成 1 条 ≤120 字符的下一步 prompt | CustomEditor ghost text：Tab 填入可编辑、Enter 直接发送、任意其他按键清除 |
 
 heads-up 与 advisor 复用 `audit.ts` 审计管线（digest → Verdict），只差输出通道。
@@ -41,7 +41,7 @@ heads-up 与 advisor 复用 `audit.ts` 审计管线（digest → Verdict），�
 3. 验收通过:tsc 干净、12 测试过、pty 烟测(script + printf 注入按键)实测 ghost 渲染与 Tab→Enter 提交(新 turn 启动)。
 4. 学到的接口事实:无头测 CustomEditor 需 mock `tui.terminal.{rows,cols}` 与 `theme.borderColor`;ghost 用"输入行下方插一行"而非内联覆盖(shortcut 注释在代码里);hint 生成延迟 = agent_end 后几秒,用户已打字时 getText() 守卫自动不显示。
 
-**M2 advisor**：`audit.ts`（buildDigest + runAudit，冷却互斥，Verdict: ok/note/concern/blocker）→ `advisor.ts`（turn_end 审计 → steer 注入，注入消息打标防循环；`/ask-advisor <问题>` 手动咨询）。
+**M2 advisor**(已完成 2026-10-19):`audit.ts`(buildDigest + parseVerdict + runAudit + Auditor 冷却互斥)→ `advisor.ts`(turn_end 审计 → steer 注入;`/ask-advisor` 手动咨询)。验收:tsc 干净、30 测试全过、print 模式加载无错;两轴 code-review 无硬性违规。定名的决定:aside 统一为 note;`/ask-advisor` 答案以 steer 注入主会话(失败时 notify 报错,手动路径不静默)。防循环语义(AdvisorState):旁注 run 不更新用户目标、不审计;steer 被中断时跳过量在下一次真实 prompt 重置。未验:真实 TUI 里 steer 注入的体感与成本(冷却 60s 先挡)。
 
 **M3 heads-up**(交互对齐 Claude Code heads-up 真实样例:折叠一句话 + `1: Learn more 2: Knew this already 0: Dismiss` → 展开标题+要点 + `1: Understood 2: Chat in main session 0: Dismiss` → 按 2 把格式化引用块拷进输入框)
 1. 触发:`tool_execution_end` 聚合,去抖 ~8s 或每 6 次调用 → audit;只有 concern/blocker 上屏,ok/note 静默;错误静默降级,保留 last-good。

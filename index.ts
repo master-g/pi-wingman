@@ -1,13 +1,14 @@
 /**
  * index.ts — pi-wingman 入口。
  *
- * M1 hint.ts（下一步 prompt 建议，WingmanEditor ghost text）已接入。
- * 后续里程碑：M2 advisor.ts（turn 审计 + steer 注入）、M3 headsup.ts
- * （去抖审计 + widget 三态交互）。llm.ts 是共享旁路调用层，audit.ts
- * 是 M2/M3 共享的审计管线。
+ * M1 hint.ts（下一步 prompt 建议，WingmanEditor ghost text）、
+ * M2 advisor.ts（turn 审计 + steer 注入）已接入。
+ * 后续里程碑：M3 headsup.ts（去抖审计 + widget 三态交互）。
+ * llm.ts 是共享旁路调用层，audit.ts 是 M2/M3 共享的审计管线。
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { installAdvisor } from "./advisor.js";
 import { loadConfig, saveConfig, type WingmanConfig } from "./config.js";
 import { installHint } from "./hint.js";
 
@@ -53,4 +54,5 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	installHint(pi, () => config);
+	installAdvisor(pi, () => config);
 }

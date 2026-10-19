@@ -18,7 +18,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, type EditorTheme, type TUI } from "@earendil-works/pi-tui";
 import type { WingmanConfig } from "./config.js";
-import { completeText, resolveModel } from "./llm.js";
+import { completeText, messageText, resolveModel } from "./llm.js";
 
 const HINT_SYSTEM_PROMPT = `The user is driving an AI coding agent. Given the user's goal and the latest transcript, suggest the single next prompt the user is most likely to send.
 
@@ -35,17 +35,6 @@ const PER_MESSAGE_CHARS = 500;
 type Message = ExtensionContext["modelRegistry"] extends never
 	? never
 	: Parameters<ExtensionContext["modelRegistry"]["complete"]>[1]["messages"][number];
-
-function messageText(message: Message): string {
-	if (!("content" in message)) return "";
-	const content = (message as { content: unknown }).content;
-	if (typeof content === "string") return content;
-	if (!Array.isArray(content)) return "";
-	return content
-		.filter((c): c is { type: "text"; text: string } => c.type === "text")
-		.map((c) => c.text)
-		.join("\n");
-}
 
 /** 把最近消息压成简短转录：role + 截断正文。 */
 function buildTranscript(messages: Message[]): string {
