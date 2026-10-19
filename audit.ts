@@ -17,6 +17,8 @@ export interface Verdict {
 	level: VerdictLevel;
 	/** 一句话说明,给用户或主 agent 看 */
 	summary: string;
+	/** 展开要点(heads-up 展开态用;仅 concern/blocker 时审计模型才会给) */
+	details: string[];
 }
 
 export type DigestMessage = LlmContext["messages"][number];
@@ -28,9 +30,10 @@ export interface DigestOptions {
 
 const AUDIT_SYSTEM_PROMPT = `你是编程 agent 的旁路审计员。给你用户的目标和 agent 近期动作摘要,判断 agent 是否走在正确的路上。
 
-只输出两行,不要任何其他内容:
+只输出如下格式,不要任何其他内容:
 VERDICT: <ok|note|concern|blocker>
 SUMMARY: <一句话,≤120 字符,用中文>
+DETAILS:(仅 concern/blocker 时输出此块,最多 4 条要点,每条一行以 "- " 开头,各 ≤100 字符,说明判断依据与建议;ok/note 时不要输出此块)
 
 级别含义:
 - blocker:正在犯错且会造成实质损失(破坏数据、违背用户目标、在错误的方向上大量返工),必须立即纠偏
@@ -74,14 +77,24 @@ export function buildDigest(messages: DigestMessage[], options: DigestOptions = 
 	return lines.join("\n");
 }
 
-/** 解析审计模型的两行输出;没有 VERDICT 行视为无效。 */
+/** 解析审计模型的输出;没有 VERDICT 行视为无效。 */
 export function parseVerdict(text: string): Verdict | undefined {
 	const verdict = text.match(/verdict:\s*(ok|note|concern|blocker)/i);
 	if (!verdict) return undefined;
 	const summary = text.match(/summary:\s*(.+)/i);
+	const detailsMatch = text.match(/details:\s*\n((?:^[ \t]*-[ \t].*\n?)+)/im);
+	const details = detailsMatch
+		? detailsMatch[1]
+				.split("\n")
+				.map((line) => line.replace(/^[ \t]*-[ \t]*/, "").trim())
+				.filter((line) => line.length > 0)
+				.slice(0, 4)
+				.map((line) => line.slice(0, 200))
+		: [];
 	return {
 		level: verdict[1].toLowerCase() as VerdictLevel,
 		summary: (summary?.[1] ?? "").trim().slice(0, 200),
+		details,
 	};
 }
 

@@ -13,6 +13,8 @@ import type { WingmanConfig } from "./config.js";
 
 export class WingmanEditor extends CustomEditor {
 	private pendingHint: string | undefined;
+	/** heads-up 数字键处理器,返回 true 表示消费;仅编辑器为空时被调用。 */
+	onHeadsUpKey?: (key: "0" | "1" | "2") => boolean;
 
 	constructor(
 		tui: TUI,
@@ -38,6 +40,13 @@ export class WingmanEditor extends CustomEditor {
 	}
 
 	handleInput(data: string): void {
+		if (
+			this.getText().length === 0 &&
+			(data === "0" || data === "1" || data === "2") &&
+			this.onHeadsUpKey?.(data)
+		) {
+			return; // heads-up 消费了数字键
+		}
 		if (this.pendingHint) {
 			if (data === "\t") {
 				// Tab:填入可编辑,吞掉 Tab 防触发补全
@@ -65,6 +74,8 @@ export class EditorManager {
 	private readonly activeTui: { current: TUI | undefined } = { current: undefined };
 	private editor: WingmanEditor | undefined;
 	private registered = false;
+	/** heads-up 数字键处理器槽位;工厂重建编辑器时自动接上。 */
+	headsUpHandler?: (key: "0" | "1" | "2") => boolean;
 
 	/** 当前编辑器实例(未安装或 TUI 未构建时为 undefined)。 */
 	get current(): WingmanEditor | undefined {
@@ -81,6 +92,7 @@ export class EditorManager {
 			ctx.ui.setEditorComponent((tui, theme, keybindings) => {
 				this.activeTui.current = tui;
 				this.editor = new WingmanEditor(tui, theme, keybindings, this.activeTui);
+				this.editor.onHeadsUpKey = (key) => this.headsUpHandler?.(key) ?? false;
 				return this.editor;
 			});
 		} else {

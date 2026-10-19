@@ -1,10 +1,10 @@
 /**
  * index.ts — pi-wingman 入口。
  *
- * M1 hint.ts（下一步 prompt 建议）、M2 advisor.ts（turn 审计 + steer 注入）
- * 已接入；M3 headsup.ts（去抖审计 + widget 三态交互）待实现。
- * editor.ts 的 EditorManager 统一管理共享 WingmanEditor 的安装（hint 或
- * headsup 任一开启即装）；llm.ts 是共享旁路调用层，audit.ts 是 M2/M3
+ * M1 hint.ts(下一步 prompt 建议)、M2 advisor.ts(turn 审计 + steer 注入)、
+ * M3 headsup.ts(去抖审计 + widget 三态交互)已接入。
+ * editor.ts 的 EditorManager 统一管理共享 WingmanEditor 的安装(hint 或
+ * headsup 任一开启即装);llm.ts 是共享旁路调用层,audit.ts 是 M2/M3
  * 共享的审计管线。
  *
  * 配置入口对称：/advisor、/hint、/headsup 各接 <provider/model> 开启并设
@@ -15,6 +15,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { installAdvisor } from "./advisor.js";
 import { applyFeatureArg, featureLine, loadConfig, saveConfig, type WingmanConfig } from "./config.js";
 import { EditorManager } from "./editor.js";
+import { installHeadsUp } from "./headsup.js";
 import { installHint } from "./hint.js";
 
 export default function (pi: ExtensionAPI) {
@@ -61,4 +62,5 @@ export default function (pi: ExtensionAPI) {
 
 	installHint(pi, () => config, editors);
 	installAdvisor(pi, () => config);
+	installHeadsUp(pi, () => config, editors);
 }

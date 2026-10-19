@@ -17,6 +17,7 @@
 - 交互验收可用 pty 烟测:`( sleep; printf 'hi\r'; sleep 30; printf '\t'; … ) | script -q log pi -e ./index.ts --no-session`,从日志找 ghost 文本与新 turn 的 Working spinner 佐证;timeout 强杀收尾——2026-10-19 M1 实测有效。
 - 激活语义:advisor/heads-up 必须 enabled && model 才激活(不回退当前模型,防双份成本);hint 无 model 时回退当前模型——2026-10-19 配置重构时按 config.ts 注释对齐代码。
 - 配置入口对称:/advisor /hint /headsup 各接 `<model>`/`off`/无参,共用 config.ts 的 applyFeatureArg;编辑器安装归 EditorManager(editor.ts),条件 `hint.enabled || headsup.enabled`,配置命令后立即 sync——2026-10-19 重构。
+- heads-up 旁路管线的唯一观测口是 `WINGMAN_DEBUG=1`(追加写 /tmp/wingman-debug.log):pty 烟测靠它确认了聚合/去抖两路 flush 与 ok/note 门控静默;真实 concern 上屏未实测(审计总能正确判 ok/note,难以稳定诱发)——2026-10-19。
 
 ## 失败尝试
 
@@ -28,10 +29,10 @@
 
 <!-- 整块改写：分支、验证命令及实际结果、停在何处；接下来做什么。 -->
 
-- [2026-10-19] main 分支:M1 hint 与 M2 advisor 完成(验收证据见 HANDOFF);随后完成配置管理重构——对称命令 /advisor /hint /headsup、EditorManager 统一编辑器安装、advisor 模型守卫;39 测试全过、tsc 干净、pty 烟测回归通过(ghost 正常渲染)。移交蓝图在 [HANDOFF.md](./HANDOFF.md)。停在:M3 heads-up 未开始;6 个提交未推送。
+- [2026-10-19] main 分支:三个里程碑全部完成——M1 hint(ghost text)、M2 advisor(turn 审计 + steer 注入 + 防循环)、M3 heads-up(去抖审计 + widget 三态交互 + 数字键捕获),外加配置管理重构(对称命令 + EditorManager)。57 测试全绿、tsc 干净、pty 烟测多轮验证(ghost、Tab→Enter、heads-up 管线决策)。移交蓝图在 [HANDOFF.md](./HANDOFF.md)。停在:全部实现完成,7 个提交未推送,未发布;未真实日常试用。
 
 ## 下次运行
 
 <!-- 整块改写：接下来的任务和优先级，含仍受阻的项。 -->
 
-- [2026-10-19] 按 [HANDOFF.md](./HANDOFF.md) 做 M3 heads-up:headsup.ts(tool_execution_end 聚合,去抖 ~8s 或每 6 次 → 复用 audit.ts 的 Auditor → widget 三态交互);数字键捕获挂在共享 WingmanEditor(editor.ts),编辑器安装已由 EditorManager 按 hint||headsup 条件管好,激活守卫需 enabled && model。本地 6 个提交未推送,push 需用户确认。
+- [2026-10-19] 实现面已空,剩下的是交付与试用:1) 推送 7 个提交(需用户确认口令);2) 可选 `npm publish` 发布 @master.g/pi-wingman(需用户确认,发布前 `npm pack --dry-run` 核对 tarball);3) 日常 pi 里启用 heads-up/advisor 试用,用 WINGMAN_DEBUG=1 观察旁路判定质量,重点回答 HANDOFF 遗留未验证点:steer 注入体感、widget 真实渲染与数字键手感、hint 质量。

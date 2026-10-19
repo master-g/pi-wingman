@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { WingmanConfig } from "./config.js";
-import { EditorManager } from "./editor.js";
+import { EditorManager, WingmanEditor } from "./editor.js";
 
 function makeCtx(mode: "tui" | "print" = "tui") {
 	const calls: unknown[] = [];
@@ -59,5 +59,51 @@ describe("EditorManager.sync", () => {
 		expect(calls[1]).toBeUndefined();
 		manager.sync(ctx, configWith(true, false));
 		expect(calls.length).toBe(3);
+	});
+});
+
+describe("WingmanEditor 数字键捕获(heads-up)", () => {
+	function makeEditor(onHeadsUpKey?: (key: "0" | "1" | "2") => boolean) {
+		const tui = { requestRender() {}, terminal: { rows: 24, cols: 80 } };
+		const theme = { borderColor: (s: string) => s } as never;
+		const keybindings = { matches: () => false } as never;
+		const editor = new WingmanEditor(tui as never, theme, keybindings, { current: tui } as never);
+		editor.onHeadsUpKey = onHeadsUpKey;
+		return editor;
+	}
+
+	test("编辑器为空且有 handler 时 0/1/2 被消费", () => {
+		const seen: string[] = [];
+		const editor = makeEditor((key) => {
+			seen.push(key);
+			return true;
+		});
+		editor.handleInput("1");
+		expect(seen).toEqual(["1"]);
+		expect(editor.getText()).toBe(""); // 未进编辑器
+	});
+
+	test("handler 返回 false 时数字照常输入", () => {
+		const editor = makeEditor(() => false);
+		editor.handleInput("1");
+		expect(editor.getText()).toBe("1");
+	});
+
+	test("编辑器有文本时数字不拦截", () => {
+		let called = false;
+		const editor = makeEditor(() => {
+			called = true;
+			return true;
+		});
+		editor.handleInput("x");
+		editor.handleInput("1");
+		expect(called).toBe(false);
+		expect(editor.getText()).toBe("x1");
+	});
+
+	test("无 handler 时数字照常输入", () => {
+		const editor = makeEditor(undefined);
+		editor.handleInput("0");
+		expect(editor.getText()).toBe("0");
 	});
 });

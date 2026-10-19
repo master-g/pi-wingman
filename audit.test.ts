@@ -69,6 +69,7 @@ describe("parseVerdict", () => {
 		expect(parseVerdict("VERDICT: concern\nSUMMARY: 改错了文件")).toEqual({
 			level: "concern",
 			summary: "改错了文件",
+			details: [],
 		});
 	});
 
@@ -82,7 +83,18 @@ describe("parseVerdict", () => {
 	});
 
 	test("缺 SUMMARY 时 summary 为空串", () => {
-		expect(parseVerdict("VERDICT: ok")).toEqual({ level: "ok", summary: "" });
+		expect(parseVerdict("VERDICT: ok")).toEqual({ level: "ok", summary: "", details: [] });
+	});
+
+	test("DETAILS 块解析为要点列表,最多 4 条", () => {
+		const text =
+			"VERDICT: blocker\nSUMMARY: 在删用户数据\nDETAILS:\n- 要点一\n- 要点二\n- 三\n- 四\n- 五(超出)\n无关行";
+		const v = parseVerdict(text);
+		expect(v?.details).toEqual(["要点一", "要点二", "三", "四"]);
+	});
+
+	test("没有 DETAILS 块时 details 为空数组", () => {
+		expect(parseVerdict("VERDICT: note\nSUMMARY: 顺手改名")?.details).toEqual([]);
 	});
 });
 
@@ -92,7 +104,7 @@ describe("Auditor 冷却与互斥", () => {
 	test("成功路径返回解析后的 Verdict", async () => {
 		const auditor = new Auditor({ minIntervalMs: 1000, now: () => 0 });
 		const v = await auditor.run(registryReturning("VERDICT: note\nSUMMARY: 可以顺手改名"), fakeModel, input);
-		expect(v).toEqual({ level: "note", summary: "可以顺手改名" });
+		expect(v).toEqual({ level: "note", summary: "可以顺手改名", details: [] });
 	});
 
 	test("冷却期内跳过", async () => {

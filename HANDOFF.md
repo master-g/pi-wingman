@@ -43,13 +43,15 @@ heads-up 与 advisor 复用 `audit.ts` 审计管线（digest → Verdict），�
 
 **M2 advisor**(已完成 2026-10-19):`audit.ts`(buildDigest + parseVerdict + runAudit + Auditor 冷却互斥)→ `advisor.ts`(turn_end 审计 → steer 注入;`/ask-advisor` 手动咨询)。验收:tsc 干净、30 测试全过、print 模式加载无错;两轴 code-review 无硬性违规。定名的决定:aside 统一为 note;`/ask-advisor` 答案以 steer 注入主会话(失败时 notify 报错,手动路径不静默)。防循环语义(AdvisorState):旁注 run 不更新用户目标、不审计;steer 被中断时跳过量在下一次真实 prompt 重置。未验:真实 TUI 里 steer 注入的体感与成本(冷却 60s 先挡)。
 
-**M3 heads-up**(交互对齐 Claude Code heads-up 真实样例:折叠一句话 + `1: Learn more 2: Knew this already 0: Dismiss` → 展开标题+要点 + `1: Understood 2: Chat in main session 0: Dismiss` → 按 2 把格式化引用块拷进输入框)
-1. 触发:`tool_execution_end` 聚合,去抖 ~8s 或每 6 次调用 → audit;只有 concern/blocker 上屏,ok/note 静默;错误静默降级,保留 last-good。
-2. 折叠态:widget 显示 `✦ Heads up · <一句话>` + 选项行 `1: 展开  2: 已知悉  0: 忽略`。
-3. 展开态(按 1):widget 换成标题 + 要点列表(每行 ≤ 渲染宽度,超宽会拖垮 pi-tui),选项变 `1: 知道了  2: 带到主会话  0: 忽略`。
+**M3 heads-up**(已完成 2026-10-19。交互对齐 Claude Code heads-up 真实样例:折叠一句话 + `1: Learn more 2: Knew this already 0: Dismiss` → 展开标题+要点 + `1: Understood 2: Chat in main session 0: Dismiss` → 按 2 把格式化引用块拷进输入框)
+1. 触发:`tool_execution_end` 聚合,去抖 8s 或攒够 6 次 → audit(复用 Auditor,冷却 30s);只有 concern/blocker 上屏,ok/note 静默;错误静默降级,保留 last-good。
+2. 折叠态:widget(belowEditor)显示 `✦ Heads up · <一句话>` + 选项行 `1: 展开  2: 已知悉  0: 忽略`。
+3. 展开态(按 1):标题 + 要点列表(Verdict.details,审计 prompt 新增 DETAILS 块;每行 truncateToWidth),选项变 `1: 知道了  2: 带到主会话  0: 忽略`。
 4. 带到主会话(展开态按 2):`setEditorText()` 填入 `Here is a note offered by a side agent:` + `> ` 引用块,用户自己编辑/发送——不自动注入。
-5. 按键捕获:仅编辑器为空时 0/1/2 是命令,其余按键照常输入、不动 widget。与 hint 的 Tab/Enter 合进同一个 WingmanEditor(setEditorComponent 全局只能装一个)。
-6. 抑制:0/2 都把 finding digest 记入本会话抑制集,同一发现不再弹;v1 两者语义相同(预留按类别抑制)。
+5. 按键捕获:仅编辑器为空时 0/1/2 是命令(WingmanEditor.onHeadsUpKey,经 EditorManager 槽位),其余按键照常输入。已知限制:空编辑器里想输 0/1/2 开头的文本会先被 heads-up 拿走(对齐 Claude Code)。
+6. 抑制:0/2 都把 finding digest(level+summary)记入本会话抑制集,同一发现不再弹;v1 两者语义相同(预留按类别抑制)。
+7. 观测口:`WINGMAN_DEBUG=1` 时管线决策追加到 /tmp/wingman-debug.log(旁路默认静默,这是唯一观测口)。
+8. 验收:57 测试全绿、typecheck 干净;pty 烟测实测聚合(批量 6 与去抖 2 两路 flush)、审计返回、ok/note 门控静默;真实 concern 上屏与数字键未实测(集成测试覆盖逻辑,难以稳定诱发)。
 
 ## 陷阱
 
@@ -63,7 +65,7 @@ heads-up 与 advisor 复用 `audit.ts` 审计管线（digest → Verdict），�
 
 ## 未验证点（实现时确认）
 
-- heads-up 数字键与正常输入的边界:仅编辑器为空时捕获 0/1/2;用户打字中途弹出的 heads-up 不得抢键盘(M3 试出)。
+- heads-up 数字键与正常输入的边界已实现并测试(仅编辑器为空时捕获 0/1/2);**未实测**:真实 TUI 里 concern/blocker 上屏后的 widget 渲染与数字键体感(集成测试覆盖逻辑;pty 烟测中审计总是判 ok/note,难以稳定诱发)。
 - steer 注入在高频 turn 下的体感与成本（M2 用冷却 + 用户自选便宜模型兜底）。
 
 ## 证据锚点
