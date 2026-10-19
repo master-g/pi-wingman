@@ -22,10 +22,10 @@
 
 <!-- 整块改写：分支、验证命令及实际结果、停在何处；接下来做什么。 -->
 
-- [2026-10-19] main 分支：骨架建仓完成并推送 origin/main（github.com/master-g/pi-wingman，public）。验证：`bun install` 后 `npm run typecheck` 通过；测试未写（骨架无逻辑）。停在：配置与 `/wingman`、`/advisor` 命令可用，三个功能控制器为桩；未在真实 pi 中加载验证过。
+- [2026-10-19] main 分支：骨架建仓完成（github.com/master-g/pi-wingman，public）；bootstrap-claude 已初始化（CLAUDE.md 指针 + 本记忆 + AGENTS.md 禁止文件/审查规则节）。验证：`bun install` 后 `npm run typecheck` 通过；测试未写（骨架无逻辑）。移交蓝图在 [HANDOFF.md](./HANDOFF.md)。停在：配置与 `/wingman`、`/advisor` 命令可用，三个功能控制器为桩；未在真实 pi 中加载验证过。
 
 ## 下次运行
 
 <!-- 整块改写：接下来的任务和优先级，含仍受阻的项。 -->
 
-- [2026-10-19] M1 hint：`agent_end` 生成下一步建议 + HintEditor（CustomEditor ghost text，Tab/Enter 接受）；先跑 `pi --extension ./index.ts` 验证骨架加载。之后 M2 advisor、M3 heads-up。
+- [2026-10-19] 按 [HANDOFF.md](./HANDOFF.md) 走：先 `pi --extension ./index.ts` 验证骨架加载，再做 M1 hint（llm.ts 封装 + HintEditor ghost text，Tab/Enter 接受）；之后 M2 advisor、M3 heads-up。
