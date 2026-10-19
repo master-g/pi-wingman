@@ -5,7 +5,7 @@
 ## 现状
 
 - repo：https://github.com/master-g/pi-wingman（public），本地 `~/github/pi-wingman`，main 分支。
-- 骨架已建仓：`config.ts` 真实可用（读写 `~/.pi/agent/wingman.json`）；`index.ts` 已注册 `/wingman`（状态）、`/advisor <provider/model|off>`（配置）命令；`llm.ts` / `audit.ts` / `hint.ts` / `advisor.ts` / `headsup.ts` 为带契约注释的桩。
+- 骨架已建仓并两次迭代:`config.ts` 读写 `~/.pi/agent/wingman.json`;`index.ts` 注册 `/wingman`(状态)+ 对称配置命令 `/advisor`、`/hint`、`/headsup`(`<provider/model>` 开 / `off` 关 / 无参看状态);`editor.ts` 的 EditorManager 统一管理共享 WingmanEditor(安装条件 `hint.enabled || headsup.enabled`,配置命令后立即 sync);`llm.ts`/`audit.ts`/`hint.ts`/`advisor.ts` 已实现,`headsup.ts` 仍为桩。
 - 已验证：`bun install` 后 `npm run typecheck` 通过。
 - 已验证(2026-10-19):print 模式 `pi --no-extensions -e ./index.ts --no-session -p "/advisor probe/test-model"` 全链路通过——扩展加载、斜杠命令派发(带参数)、配置读写均正常;typecheck 通过。未验:TUI 内 `ctx.ui.notify` 渲染(print 模式 notify 无可见输出但不报错)。
 
@@ -58,6 +58,7 @@ heads-up 与 advisor 复用 `audit.ts` 审计管线（digest → Verdict），�
 - CustomEditor 未拥有的按键必须转发基类，恢复默认用 `setEditorComponent(undefined)`。
 - advisor steer 注入必须打标,advisor 触发的 turn 不再触发 advisor(防循环)。
 - `setEditorComponent` 全局只能装一个:hint(Tab/Enter)与 heads-up(数字键)必须合并为一个 WingmanEditor 状态机,不能各装各的。
+- 激活语义:advisor/heads-up 必须 `enabled && model` 才激活(不回退当前模型,防双份成本);hint 无 model 时回退当前模型。
 - 提交规范见 AGENTS.md 审查规则；`git push` / `npm publish` 须用户确认。
 
 ## 未验证点（实现时确认）

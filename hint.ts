@@ -1,23 +1,14 @@
 /**
- * hint.ts — 任务结束后的下一步 prompt 建议（参照 Claude Code prompt suggestions）。
+ * hint.ts — 任务结束后的下一步 prompt 建议(参照 Claude Code prompt suggestions)。
  *
- * agent_end 后用便宜模型生成 1 条 ≤120 字符的下一步 prompt。编辑器为空且有
- * pending hint 时在输入行下方渲染暗色 ghost 行；Tab → 填入（可编辑）；
- * Enter → 填入并提交；其他任意按键清除。不拥有的按键全部转发基类。
- * session_start / before_agent_start 清除 hint。
- *
- * WingmanEditor 是全扩展唯一的 CustomEditor（setEditorComponent 全局只能装
- * 一个），M3 heads-up 的数字键捕获也挂在这里。
+ * agent_end 后用便宜模型生成 1 条 ≤120 字符的下一步 prompt,经 EditorManager
+ * 拿到共享 WingmanEditor 设置 pending hint(ghost 渲染与 Tab/Enter/清除
+ * 状态机在 editor.ts)。session_start / before_agent_start 清除 hint。
  */
 
-import {
-	CustomEditor,
-	type ExtensionAPI,
-	type ExtensionContext,
-	type KeybindingsManager,
-} from "@earendil-works/pi-coding-agent";
-import { truncateToWidth, type EditorTheme, type TUI } from "@earendil-works/pi-tui";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { WingmanConfig } from "./config.js";
+import type { EditorManager } from "./editor.js";
 import { completeText, messageText, resolveModel } from "./llm.js";
 
 const HINT_SYSTEM_PROMPT = `The user is driving an AI coding agent. Given the user's goal and the latest transcript, suggest the single next prompt the user is most likely to send.
@@ -48,80 +39,22 @@ function buildTranscript(messages: Message[]): string {
 		.join("\n\n");
 }
 
-export class WingmanEditor extends CustomEditor {
-	private pendingHint: string | undefined;
-
-	constructor(
-		tui: TUI,
-		theme: EditorTheme,
-		keybindings: KeybindingsManager,
-		private readonly activeTui: { current: TUI | undefined },
-	) {
-		super(tui, theme, keybindings);
-	}
-
-	setHint(hint: string | undefined): void {
-		this.pendingHint = hint;
-		this.activeTui.current?.requestRender();
-	}
-
-	render(width: number): string[] {
-		const lines = super.render(width);
-		if (!this.pendingHint || this.getText().length > 0 || lines.length < 2) return lines;
-		// shortcut: ghost 渲染为输入行下方新增一行；如需与输入行内联覆盖再升级。
-		const ghost = truncateToWidth(`\x1b[2m  💡 ${this.pendingHint}\x1b[0m`, width);
-		lines.splice(lines.length - 1, 0, ghost);
-		return lines;
-	}
-
-	handleInput(data: string): void {
-		if (this.pendingHint) {
-			if (data === "\t") {
-				// Tab：填入可编辑，吞掉 Tab 防触发补全
-				const hint = this.pendingHint;
-				this.pendingHint = undefined;
-				this.setText(hint);
-				return;
-			}
-			if (data === "\r" || data === "\n") {
-				// Enter：填入后走基类提交路径
-				const hint = this.pendingHint;
-				this.pendingHint = undefined;
-				this.setText(hint);
-				super.handleInput("\r");
-				return;
-			}
-			// 其他任意按键：清除 hint，按键照常转发
-			this.pendingHint = undefined;
-		}
-		super.handleInput(data);
-	}
-}
-
-export function installHint(pi: ExtensionAPI, getConfig: () => WingmanConfig): void {
-	const activeTui: { current: TUI | undefined } = { current: undefined };
-	let editor: WingmanEditor | undefined;
+export function installHint(pi: ExtensionAPI, getConfig: () => WingmanConfig, editors: EditorManager): void {
 	let lastGoal = "";
 	const shutdown = new AbortController();
 
-	pi.on("session_start", (_event, ctx) => {
-		if (ctx.mode !== "tui") return;
-		if (!getConfig().hint.enabled) return;
-		editor = undefined;
-		ctx.ui.setEditorComponent((tui, theme, keybindings) => {
-			activeTui.current = tui;
-			editor = new WingmanEditor(tui, theme, keybindings, activeTui);
-			return editor;
-		});
+	pi.on("session_start", () => {
+		editors.current?.setHint(undefined);
 	});
 
 	pi.on("before_agent_start", (event) => {
 		if (event.messageType === "user") lastGoal = event.prompt;
-		editor?.setHint(undefined);
+		editors.current?.setHint(undefined);
 	});
 
 	pi.on("agent_end", async (event, ctx) => {
 		const config = getConfig().hint;
+		const editor = editors.current;
 		if (!config.enabled || ctx.mode !== "tui" || !editor) return;
 		const model = resolveModel(ctx.modelRegistry, config.model, ctx.model);
 		if (!model) return;
@@ -148,10 +81,7 @@ export function installHint(pi: ExtensionAPI, getConfig: () => WingmanConfig): v
 		editor.setHint(result.text.replace(/\s+/g, " ").trim().slice(0, MAX_HINT_CHARS));
 	});
 
-	pi.on("session_shutdown", (_event, ctx) => {
+	pi.on("session_shutdown", () => {
 		shutdown.abort();
-		editor = undefined;
-		activeTui.current = undefined;
-		ctx.ui.setEditorComponent(undefined);
 	});
 }

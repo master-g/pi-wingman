@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-// WingmanEditor 从 hint.ts 导出,供本测试与 M3 heads-up 复用。
-import { WingmanEditor } from "./hint.js";
+// WingmanEditor 已移至 editor.ts(与 M3 heads-up 共享)。
+import { WingmanEditor } from "./editor.js";
 
 function makeEditor() {
 	const tui = { requestRender() {}, terminal: { rows: 24, cols: 80 } };

@@ -15,6 +15,8 @@
 - heads-up 交互对齐 Claude Code 真实样例:widget 三态(折叠一句话+1/2/0 选项 → 展开要点 → 按 2 用 setEditorText 拷进输入框),不自动注入主 agent;数字键仅编辑器为空时捕获,且与 hint 共用一个 WingmanEditor(setEditorComponent 全局限一个)——2026-10-19 用户提供的 claude-code 实际样例。
 - 无头单测 CustomEditor:mock `tui.terminal.{rows,cols}`(render 读 terminal.rows)与 `theme.borderColor`(构造函数赋值)即可跑通 render/handleInput/onSubmit——2026-10-19 hint.test.ts 逐错误试出。
 - 交互验收可用 pty 烟测:`( sleep; printf 'hi\r'; sleep 30; printf '\t'; … ) | script -q log pi -e ./index.ts --no-session`,从日志找 ghost 文本与新 turn 的 Working spinner 佐证;timeout 强杀收尾——2026-10-19 M1 实测有效。
+- 激活语义:advisor/heads-up 必须 enabled && model 才激活(不回退当前模型,防双份成本);hint 无 model 时回退当前模型——2026-10-19 配置重构时按 config.ts 注释对齐代码。
+- 配置入口对称:/advisor /hint /headsup 各接 `<model>`/`off`/无参,共用 config.ts 的 applyFeatureArg;编辑器安装归 EditorManager(editor.ts),条件 `hint.enabled || headsup.enabled`,配置命令后立即 sync——2026-10-19 重构。
 
 ## 失败尝试
 
@@ -26,10 +28,10 @@
 
 <!-- 整块改写：分支、验证命令及实际结果、停在何处；接下来做什么。 -->
 
-- [2026-10-19] main 分支:M1 hint 完成——llm.ts(resolveModel + completeText)与 hint.ts(WingmanEditor ghost 行 + Tab/Enter/清除状态机 + agent_end 生成)实现并接线;12 测试全过、tsc 干净、pty 烟测实测 ghost 渲染与 Tab→Enter 提交。agent-skills 脚手架(docs/agents/*)也在本分支。移交蓝图在 [HANDOFF.md](./HANDOFF.md)。停在:M1 完成未推送,M2 advisor 未开始。
+- [2026-10-19] main 分支:M1 hint 与 M2 advisor 完成(验收证据见 HANDOFF);随后完成配置管理重构——对称命令 /advisor /hint /headsup、EditorManager 统一编辑器安装、advisor 模型守卫;39 测试全过、tsc 干净、pty 烟测回归通过(ghost 正常渲染)。移交蓝图在 [HANDOFF.md](./HANDOFF.md)。停在:M3 heads-up 未开始;6 个提交未推送。
 
 ## 下次运行
 
 <!-- 整块改写：接下来的任务和优先级，含仍受阻的项。 -->
 
-- [2026-10-19] 按 [HANDOFF.md](./HANDOFF.md) 做 M2 advisor:audit.ts(buildDigest + runAudit,冷却互斥,Verdict: ok/note/concern/blocker)→ advisor.ts(turn_end 审计 → steer 注入,注入消息打标防循环;`/ask-advisor <问题>` 手动咨询);之后 M3 heads-up 复用 audit.ts 与 WingmanEditor 数字键位。本地 4 个提交未推送,push 需用户确认。
+- [2026-10-19] 按 [HANDOFF.md](./HANDOFF.md) 做 M3 heads-up:headsup.ts(tool_execution_end 聚合,去抖 ~8s 或每 6 次 → 复用 audit.ts 的 Auditor → widget 三态交互);数字键捕获挂在共享 WingmanEditor(editor.ts),编辑器安装已由 EditorManager 按 hint||headsup 条件管好,激活守卫需 enabled && model。本地 6 个提交未推送,push 需用户确认。

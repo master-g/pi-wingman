@@ -57,3 +57,25 @@ export function saveConfig(config: WingmanConfig, path: string = configPath()): 
 	mkdirSync(dirname(path), { recursive: true });
 	writeFileSync(path, JSON.stringify(config, null, "\t") + "\n");
 }
+
+/** 状态行:"hint: on (provider/model)" / "hint: on (current model)" / "hint: off"。 */
+export function featureLine(name: string, feature: FeatureConfig): string {
+	const state = feature.enabled ? `on (${feature.model ?? "current model"})` : "off";
+	return `${name}: ${state}`;
+}
+
+/**
+ * 应用配置命令参数:"off" 关闭,"provider/model" 开启并设模型,空参只读。
+ * 返回状态行;调用方负责 saveConfig 与后续副作用(如编辑器同步)。
+ */
+export function applyFeatureArg(
+	config: WingmanConfig,
+	feature: keyof WingmanConfig,
+	arg: string,
+): string {
+	const value = arg.trim();
+	if (value) {
+		config[feature] = value === "off" ? { enabled: false } : { enabled: true, model: value };
+	}
+	return featureLine(feature, config[feature]);
+}

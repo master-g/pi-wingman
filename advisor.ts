@@ -75,7 +75,9 @@ export function installAdvisor(pi: ExtensionAPI, getConfig: () => WingmanConfig)
 
 	pi.on("turn_end", async (event, ctx) => {
 		const config = getConfig().advisor;
-		if (!config.enabled) return;
+		// advisor 必须显式配置模型才激活(开启必经 /advisor <model>);
+		// 手编 JSON 只开 enabled 不设 model 时不回退当前模型,避免双份成本。
+		if (!config.enabled || !config.model) return;
 		if (!state.shouldAuditTurn()) return;
 		const model = resolveModel(ctx.modelRegistry, config.model, ctx.model);
 		if (!model) return;
