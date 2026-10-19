@@ -7,11 +7,11 @@
  * before_agent_start 清除 hint 并使在途生成作废。
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { buildDigest, type DigestMessage } from "./audit.js";
 import type { WingmanConfig } from "./config.js";
 import type { EditorManager } from "./editor.js";
-import { completeText, resolveModel, type AnyModel, type ModelRegistry } from "./llm.js";
+import { completeText, resolveModel, type AnyModel } from "./llm.js";
 
 const HINT_SYSTEM_PROMPT = `The user is driving an AI coding agent. Given the user's goal and the latest transcript, suggest the single next prompt the user is most likely to send.
 
@@ -22,6 +22,7 @@ Rules:
 - If the work looks finished, suggest a sensible follow-up or say "继续".`;
 
 const MAX_HINT_CHARS = 120;
+const STATUS_KEY = "wingman-hint";
 
 export function installHint(
 	pi: ExtensionAPI,
@@ -33,10 +34,11 @@ export function installHint(
 	/** 每个新 run 自增;生成回来时代际已变说明 hint 过期,丢弃。 */
 	let generation = 0;
 
-	const generate = async (registry: ModelRegistry, model: AnyModel, transcript: string, gen: number) => {
+	const generate = async (ctx: ExtensionContext, model: AnyModel, transcript: string, gen: number) => {
+		ctx.ui.setStatus(STATUS_KEY, "hint ⋯");
 		const goal = getGoal() ? `User's goal: ${getGoal()}\n\n` : "";
 		const result = await completeText(
-			registry,
+			ctx.modelRegistry,
 			model,
 			{
 				systemPrompt: HINT_SYSTEM_PROMPT,
@@ -48,16 +50,19 @@ export function installHint(
 					},
 				],
 			},
-			// hint 要快:高 effort 多半超时,失败即无 hint
-			{ timeoutMs: 10_000, signal: shutdown.signal, effort: getConfig().hint.effort },
+			// 高 effort 常要 10s 以上;迟到的 hint 由代际与空编辑器判断兜底,放宽无副作用
+			{ timeoutMs: 30_000, signal: shutdown.signal, effort: getConfig().hint.effort },
 		);
-		if (!result.ok || gen !== generation) return; // 静默降级 / 已过期
+		if (gen !== generation) return; // 已过期:新 run 开始时已清状态
+		ctx.ui.setStatus(STATUS_KEY, result.ok ? undefined : `hint ✗ ${result.reason.slice(0, 60)}`);
+		if (!result.ok) return;
 		editors.current?.setHint(result.text.replace(/\s+/g, " ").trim().slice(0, MAX_HINT_CHARS));
 	};
 
-	pi.on("before_agent_start", () => {
+	pi.on("before_agent_start", (_event, ctx) => {
 		generation++;
 		editors.current?.setHint(undefined);
+		ctx.ui.setStatus(STATUS_KEY, undefined);
 	});
 
 	pi.on("agent_end", (event, ctx) => {
@@ -68,7 +73,7 @@ export function installHint(
 		const transcript = buildDigest(event.messages as DigestMessage[], { maxMessages: 6, perMessageChars: 500 });
 		if (!transcript) return;
 		// 后台执行已在 runner 的 try/catch 之外,自己兜底(会话替换后 UI 调用可能抛)
-		generate(ctx.modelRegistry, model, transcript, generation).catch(() => {});
+		generate(ctx, model, transcript, generation).catch(() => {});
 	});
 
 	pi.on("session_shutdown", () => {

@@ -23,6 +23,7 @@
 - 复用 pi 的 ModelSelectorComponent 要 ModelRuntime,扩展只有 ModelRegistry:组件只调 getAvailableSnapshot/getModel/getError/refresh,registry 一一转发,故用 4 方法适配对象 `as unknown as ModelRuntime`;组件需 initTheme(TUI 里已初始化),失败回退手输——2026-10-19 读 model-selector.js 并用真组件无头跑通。
 - 扩展可 import `@earendil-works/pi-ai`(loader 别名到 compat 入口,packages.md 要求 peerDependencies 写 "*"):effort 档位用 getSupportedThinkingLevels/clampThinkingLevel——2026-10-19。
 - 试用反馈「advisor/heads-up 没动静」根因是审计多判 ok 且 ok/失败都静默(pty 实测两条链路都在跑),故加底栏 setStatus 显示 ⋯/✓级别/✗原因;glm-5.3-flash 在 effort=max 下偶发 stopReason=error——2026-10-19。
+- hint「触发率低」根因是 effort=max 下 glm-5.3-flash 一半请求超 10s(真实会话回放串行实测 5.8–14.1s,不设 effort 1.7–3.3s)且失败静默;故超时放宽到 30s、状态进底栏。回放并发 8 次会撞 zai 429 限流,测延迟要串行——2026-10-19。
 - pty 烟测看最终屏幕:差分渲染的日志直接 grep 不准,用 pyte(scratchpad venv)回放 `script` 日志得到 80x24 屏幕再比对,hint 内联与底栏状态都这样核实——2026-10-19。
 - CustomEditor 构造参数里的 keybindings 是 app 键位;输入键位(tui.input.tab/submit)要用 pi-tui 的 `getKeybindings()`,与基类编辑器一致——2026-10-19 读 editor.js 核实。
 
@@ -36,10 +37,10 @@
 
 <!-- 整块改写：分支、验证命令及实际结果、停在何处；接下来做什么。 -->
 
-- [2026-10-19] main:按用户试用反馈修 hint ghost 多一行(改为输入行内联)与 advisor/heads-up 无迹象(加底栏状态,失败原因带 errorMessage);64 测试过、typecheck 干净,真实 pi pty+pyte 屏幕核实;已推送,0.0.3 由用户发布。
+- [2026-10-19] main:0.0.3 已发布;用户确认 powerline-footer 能显示扩展状态;按反馈给 hint 加底栏状态(⋯/✗原因)并把超时放宽到 30s;67 测试过、typecheck 干净,真实 pi pty+pyte 核实底栏出现 hint ⋯ 后 hint 内联显示;未推送、未发版。
 
 ## 下次运行
 
 <!-- 整块改写：接下来的任务和优先级，含仍受阻的项。 -->
 
-- [2026-10-19] 1) 核对 npm 上 0.0.3;2) 用户自己的 powerline-footer 是否显示扩展状态待确认;3) hint 失败仍静默,是否也进底栏待定;4) 观察高 effort 下 60s 超时是否够。
+- [2026-10-19] 1) 用户确认后推送并发 0.0.4;2) hint 内容常是笼统的「继续」,提示词是否要改待观察;3) 观察高 effort 下 advisor/headsup 60s 超时是否够。

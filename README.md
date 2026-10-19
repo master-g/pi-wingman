@@ -30,7 +30,7 @@ pi --extension ~/github/pi-wingman/index.ts
 - `/wingman advisor|hint|headsup` — 不带值时弹出 pi 的模型选择器（同 `/model`，可搜索），选完模型再选思考强度（同 `/thinking`，Esc 跳过）；也可直接写 `<provider/model> [effort]`（模型须存在，effort 须是该模型支持的档位）、`on` / `off`（开关，保留已设模型与 effort）；参数支持补全
 - `/ask-advisor <问题>` — 就当前上下文咨询顾问模型，回答注入对话
 
-advisor 与 heads-up 审计通过（ok）时不打扰，只在底栏状态显示 `advisor ⋯`（审计中）、`advisor ✓ ok`（结果级别）或 `advisor ✗ 原因`（调用失败）；自定义 footer 扩展需要自己渲染扩展状态才看得到。
+advisor 与 heads-up 审计通过（ok）时不打扰，只在底栏状态显示 `advisor ⋯`（审计中）、`advisor ✓ ok`（结果级别）或 `advisor ✗ 原因`（调用失败）；hint 生成中显示 `hint ⋯`，失败显示 `hint ✗ 原因`，成功后 hint 直接出现在输入行；自定义 footer 扩展需要自己渲染扩展状态才看得到。
 
 ## 配置
 
@@ -44,7 +44,7 @@ advisor 与 heads-up 审计通过（ok）时不打扰，只在底栏状态显示
 }
 ```
 
-三个功能默认都关闭：每个功能都会额外调用模型，需要用户自己开启。模型形如 `provider/model-id`；hint 没配模型时用当前模型（`/wingman hint on`），advisor/heads-up 必须配模型才会激活。`effort` 可选（off / minimal / low / medium / high / xhigh / max，按模型支持的档位校正），不设则不开推理。advisor/heads-up 在后台跑，单次调用超时 60 秒；hint 要求快，超时 10 秒，高 effort 多半超时，超时就不出 hint。
+三个功能默认都关闭：每个功能都会额外调用模型，需要用户自己开启。模型形如 `provider/model-id`；hint 没配模型时用当前模型（`/wingman hint on`），advisor/heads-up 必须配模型才会激活。`effort` 可选（off / minimal / low / medium / high / xhigh / max，按模型支持的档位校正），不设则不开推理。advisor/heads-up 在后台跑，单次调用超时 60 秒；hint 超时 30 秒；hint 越快越有用，建议不设或用低 effort（实测 glm-5.3-flash 不设约 2 秒，max 要 6–14 秒）。
 
 ## License
 

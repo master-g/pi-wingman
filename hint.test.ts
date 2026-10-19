@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { WingmanConfig } from "./config.js";
 // WingmanEditor 已移至 editor.ts(与 M3 heads-up 共享)。
-import { WingmanEditor } from "./editor.js";
+import { WingmanEditor, type EditorManager } from "./editor.js";
+import { installHint } from "./hint.js";
 
 function makeEditor() {
 	const tui = { requestRender() {}, terminal: { rows: 24, cols: 80 } };
@@ -73,5 +76,55 @@ describe("WingmanEditor ghost text 状态机", () => {
 		expect(editor.getText()).toBe("hi");
 		editor.handleInput("\r");
 		expect(getSubmitted()).toBe("hi");
+	});
+});
+
+describe("installHint 后台生成与底栏状态", () => {
+	function harness(response: unknown) {
+		const handlers = new Map<string, (event: never, ctx: never) => unknown>();
+		const statuses: (string | undefined)[] = [];
+		const hints: (string | undefined)[] = [];
+		const pi = { on: (event: string, handler: never) => handlers.set(event, handler) } as unknown as ExtensionAPI;
+		const ctx = {
+			mode: "tui",
+			model: { id: "current" },
+			modelRegistry: { find: () => undefined, streamSimple: () => ({ result: async () => response }) },
+			ui: { setStatus: (_key: string, text?: string) => statuses.push(text) },
+		};
+		const config: WingmanConfig = { headsup: { enabled: false }, advisor: { enabled: false }, hint: { enabled: true } };
+		const editors = { current: { setHint: (hint?: string) => hints.push(hint) } } as unknown as EditorManager;
+		installHint(pi, () => config, () => "目标", editors);
+		const agentEnd = { messages: [{ role: "assistant", content: [{ type: "text", text: "改好了" }] }] } as never;
+		return {
+			onAgentEnd: () => handlers.get("agent_end")!(agentEnd, ctx as never),
+			onAgentStart: () => handlers.get("before_agent_start")!({} as never, ctx as never),
+			statuses,
+			hints,
+		};
+	}
+	const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+	test("生成中显示 ⋯,成功后清掉状态并设 hint", async () => {
+		const h = harness({ stopReason: "stop", content: [{ type: "text", text: "跑测试" }] });
+		h.onAgentEnd();
+		await settle();
+		expect(h.statuses).toEqual(["hint ⋯", undefined]);
+		expect(h.hints.at(-1)).toBe("跑测试");
+	});
+
+	test("失败在底栏显示原因", async () => {
+		const h = harness({ stopReason: "error", errorMessage: "boom", content: [] });
+		h.onAgentEnd();
+		await settle();
+		expect(h.statuses.at(-1)).toBe("hint ✗ stopReason=error: boom");
+	});
+
+	test("新 run 开始后迟到的结果丢弃,状态清空", async () => {
+		const h = harness({ stopReason: "stop", content: [{ type: "text", text: "跑测试" }] });
+		h.onAgentEnd();
+		h.onAgentStart();
+		await settle();
+		expect(h.hints).not.toContain("跑测试");
+		expect(h.statuses.at(-1)).toBeUndefined();
 	});
 });
