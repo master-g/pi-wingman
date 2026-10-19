@@ -1,6 +1,6 @@
 {
 	"name": "@master.g/pi-wingman",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"description": "Wingman for pi — heads-up audit while the agent works, a designated advisor model, and next-prompt hints (Tab/Enter to accept)",
 	"type": "module",
 	"license": "MIT",
