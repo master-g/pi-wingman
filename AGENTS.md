@@ -5,12 +5,13 @@
 ## 技术栈
 
 - TypeScript（strict，ESM），pi 扩展：由 pi 的 jiti 运行时直接加载源码，无构建步骤，npm 包直接发布 `.ts` 源文件。
-- 运行/测试用 Bun（`bun test`），类型检查用 `tsc`（typescript ^5.9）；pi SDK `@earendil-works/pi-coding-agent` 是 peerDependency。
+- 运行/测试用 Bun（`bun test`），类型检查用 `tsc`（typescript ^5.9）；pi SDK `@earendil-works/pi-coding-agent` 与 `@earendil-works/pi-tui` 是 peerDependency。
 
 ## 导航
 
 - 单包扁平仓库：`index.ts` 入口（命令注册 + 配置加载），`config.ts` 读写 `~/.pi/agent/wingman.json`。
 - 共享层：`llm.ts` 旁路模型调用（`ctx.modelRegistry.complete()`，统一超时/AbortController），`audit.ts` 审计管线（digest → Verdict）。
+- `editor.ts`：全扩展唯一的 `WingmanEditor`（`setEditorComponent` 只能装一个），hint 的 ghost 行与 heads-up 的数字键共用；`EditorManager` 在 `hint.enabled || headsup.enabled` 时安装。
 - 功能层：`hint.ts`（M1，CustomEditor ghost text，Tab 填入 / Enter 发送）、`advisor.ts`（M2，turn 审计 + `deliverAs: "steer"` 注入）、`headsup.ts`（M3，去抖审计 + notify/widget 告警）。heads-up 与 advisor 复用 audit.ts，只差输出通道。
 
 ## 命令
@@ -42,7 +43,7 @@
 
 ## 审查规则
 
-- 无 CI；提交前本地跑 `bun test` 和 `npm run typecheck`（骨架阶段暂无测试）。
+- 无 CI；提交前本地跑 `bun test` 和 `npm run typecheck`，测试与源文件同目录（`*.test.ts`）。
 - 提交信息用 Conventional Commits（`feat:` / `fix(scope):` / `chore:`），描述中英文均可。
 
 ## 项目记忆 (回写约定)
