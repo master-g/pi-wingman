@@ -38,10 +38,10 @@
 
 <!-- 整块改写：分支、验证命令及实际结果、停在何处；接下来做什么。 -->
 
-- [2026-10-20] main:按用户要求把注入前缀精简为 `[wingman advisor · FYI]`(ADVISOR_MARKER 即完整前缀,note 与 /ask-advisor 共用;FYI 而非 ref only:ref 易读成 git ref,且要表达不必照做);读 SDK 确认 steer 会进主 agent 上下文;67 测试过、typecheck 干净;未提交。
+- [2026-10-20] main:注入前缀改为 `[wingman advisor · FYI]`(FYI 而非 ref only:ref 易读成 git ref,且要表达不必照做;note 与 /ask-advisor 共用);读 SDK 确认 steer 会进主 agent 上下文;67 测试过、typecheck 干净;版本升到 0.0.5,由用户发布。
 
 ## 下次运行
 
 <!-- 整块改写：接下来的任务和优先级，含仍受阻的项。 -->
 
-- [2026-10-20] 1) 核对 npm 上 0.0.4;2) 观察主 agent 是否仍把 `· FYI` 旁注当用户指令执行;3) hint 内容常是笼统的「继续」,提示词待观察;4) 高 effort 下 advisor/headsup 60s 超时是否够。
+- [2026-10-20] 1) 核对 npm 上 0.0.5;2) 观察主 agent 是否仍把 `· FYI` 旁注当用户指令执行;3) hint 内容常是笼统的「继续」,提示词待观察;4) 高 effort 下 advisor/headsup 60s 超时是否够。
