@@ -27,6 +27,7 @@
 - hint「触发率低」根因是 effort=max 下 glm-5.3-flash 一半请求超 10s(真实会话回放串行实测 5.8–14.1s,不设 effort 1.7–3.3s)且失败静默;故超时放宽到 30s、状态进底栏。回放并发 8 次会撞 zai 429 限流,测延迟要串行——2026-10-19。
 - pty 烟测看最终屏幕:差分渲染的日志直接 grep 不准,用 pyte(scratchpad venv)回放 `script` 日志得到 80x24 屏幕再比对,hint 内联与底栏状态都这样核实——2026-10-19。
 - CustomEditor 构造参数里的 keybindings 是 app 键位;输入键位(tui.input.tab/submit)要用 pi-tui 的 `getKeybindings()`,与基类编辑器一致——2026-10-19 读 editor.js 核实。
+- pi 没有语言设置(settings.json 与运行时均无 locale 概念,docs/settings.md 与 dist 核实);wingman 语言解析在 i18n.ts:wingman.json 的 language 字段 > LC_ALL/LANG(zh 开头判中文) > 兜底英语,UI 文案与旁路提示词输出语言共用 `/wingman language en|zh|auto` 一处配置——2026-10-20。
 
 ## 失败尝试
 
@@ -36,12 +37,12 @@
 
 ## 上次会话
 
-<!-- 整块改写：分支、验证命令及实际结果、停在何处；接下来做什么。 -->
+<!-- 整块改写:分支、验证命令及实际结果、停在何处;接下来做什么。 -->
 
-- [2026-10-20] main:注入前缀改为 `[wingman advisor · FYI]`(FYI 而非 ref only:ref 易读成 git ref,且要表达不必照做;note 与 /ask-advisor 共用);读 SDK 确认 steer 会进主 agent 上下文;67 测试过、typecheck 干净;版本升到 0.0.5,由用户发布。
+- [2026-10-20] main:多语言支持落地——新增 i18n.ts(resolveLang + 双语文案表),audit/advisor/hint 提示词按语言钉输出指令,heads-up widget 与全部 notify 文案双语;`bun test` 71 过、`npm run typecheck` 干净;停在未发布的工作树,下一个版本号未升。
 
 ## 下次运行
 
-<!-- 整块改写：接下来的任务和优先级，含仍受阻的项。 -->
+<!-- 整块改写:接下来的任务和优先级,含仍受阻的项。 -->
 
-- [2026-10-20] 1) 核对 npm 上 0.0.5;2) 观察主 agent 是否仍把 `· FYI` 旁注当用户指令执行;3) hint 内容常是笼统的「继续」,提示词待观察;4) 高 effort 下 advisor/headsup 60s 超时是否够。
+- [2026-10-20] 1) 核对 npm 上 0.0.5;2) 观察主 agent 是否仍把 `· FYI` 旁注当用户指令执行;3) hint 内容常是笼统的「继续」,提示词待观察;4) 高 effort 下 advisor/headsup 60s 超时是否够;5) 实测 `/wingman language` 切换后 hint/audit 输出语言是否跟随(本次只单测了文案表与解析,未跑真实模型)。

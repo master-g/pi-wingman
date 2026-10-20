@@ -9,6 +9,7 @@
  * undefined);失败一律静默(返回 undefined),不抛进 pi 事件循环。
  */
 
+import { strings, type Lang } from "./i18n.js";
 import { completeText, messageText, type AnyModel, type CallOptions, type Message, type ModelRegistry } from "./llm.js";
 
 export type VerdictLevel = "ok" | "note" | "concern" | "blocker";
@@ -37,11 +38,13 @@ export interface DigestOptions {
 	perMessageChars?: number;
 }
 
-const AUDIT_SYSTEM_PROMPT = `你是编程 agent 的旁路审计员。给你用户的目标和 agent 近期动作摘要,判断 agent 是否走在正确的路上。
+/** 审计提示词;末行钉住输出语言,其余正文保持已验证的中文版本。 */
+function auditSystemPrompt(lang: Lang): string {
+	return `你是编程 agent 的旁路审计员。给你用户的目标和 agent 近期动作摘要,判断 agent 是否走在正确的路上。
 
 只输出如下格式,不要任何其他内容:
 VERDICT: <ok|note|concern|blocker>
-SUMMARY: <一句话,≤120 字符,用中文>
+SUMMARY: <一句话,≤120 字符>
 DETAILS:(仅 concern/blocker 时输出此块,最多 4 条要点,每条一行以 "- " 开头,各 ≤100 字符,说明判断依据与建议;ok/note 时不要输出此块)
 
 级别含义:
@@ -50,7 +53,9 @@ DETAILS:(仅 concern/blocker 时输出此块,最多 4 条要点,每条一行以 
 - note:方向正确,但有一个可选的改进建议
 - ok:一切正常,无话可说
 
-宁缺毋滥:不确定时选 ok。带 [wingman advisor · FYI] 标记的消息是顾问自己之前的旁注,不要评论它。`;
+宁缺毋滥:不确定时选 ok。带 [wingman advisor · FYI] 标记的消息是顾问自己之前的旁注,不要评论它。
+${lang === "zh" ? "SUMMARY 与 DETAILS 用中文写。" : "Write SUMMARY and DETAILS in English."}`;
+}
 
 /** 把近期消息压成审计用摘要:role 前缀 + 截断正文 + 工具调用/结果行。 */
 export function buildDigest(messages: DigestMessage[], options: DigestOptions = {}): string {
@@ -100,19 +105,20 @@ export function parseVerdict(text: string): Verdict | undefined {
 export async function runAudit(
 	registry: ModelRegistry,
 	model: AnyModel,
-	input: { goal: string; digest: string },
+	input: { goal: string; digest: string; lang: Lang },
 	options: CallOptions = {},
 ): Promise<AuditResult> {
-	const goal = input.goal ? `用户目标:${input.goal}\n\n` : "";
+	const s = strings(input.lang);
+	const goal = input.goal ? `${s.labels.goal}:${input.goal}\n\n` : "";
 	const result = await completeText(
 		registry,
 		model,
 		{
-			systemPrompt: AUDIT_SYSTEM_PROMPT,
+			systemPrompt: auditSystemPrompt(input.lang),
 			messages: [
 				{
 					role: "user",
-					content: [{ type: "text", text: `${goal}近期动作:\n${input.digest}` }],
+					content: [{ type: "text", text: `${goal}${s.labels.recentActions}:\n${input.digest}` }],
 					timestamp: Date.now(),
 				},
 			],
@@ -121,7 +127,7 @@ export async function runAudit(
 	);
 	if (!result.ok) return result;
 	const verdict = parseVerdict(result.text);
-	return verdict ? { ok: true, verdict } : { ok: false, reason: `无法解析裁决:${result.text.slice(0, 40)}` };
+	return verdict ? { ok: true, verdict } : { ok: false, reason: s.unparseableVerdict(result.text.slice(0, 40)) };
 }
 
 /** 冷却 + 互斥的审计器:advisor(turn_end)与 heads-up(去抖)共用一个实例各管各的。 */
@@ -144,7 +150,7 @@ export class Auditor {
 	async run(
 		registry: ModelRegistry,
 		model: AnyModel,
-		input: { goal: string; digest: string },
+		input: { goal: string; digest: string; lang: Lang },
 		options: CallOptions = {},
 	): Promise<AuditResult | undefined> {
 		if (!this.ready) return undefined; // 冷却或在途:跳过

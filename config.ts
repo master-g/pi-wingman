@@ -10,6 +10,7 @@ import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { strings, type Lang } from "./i18n.js";
 
 export interface FeatureConfig {
 	enabled: boolean;
@@ -26,6 +27,8 @@ export interface WingmanConfig {
 	headsup: FeatureConfig;
 	advisor: FeatureConfig;
 	hint: FeatureConfig;
+	/** 界面与旁路输出语言:"en" / "zh";省略或 "auto" 时按环境变量,兜底英语。 */
+	language?: string;
 }
 
 export const DEFAULT_CONFIG: WingmanConfig = {
@@ -33,6 +36,9 @@ export const DEFAULT_CONFIG: WingmanConfig = {
 	advisor: { enabled: false },
 	hint: { enabled: false },
 };
+
+/** 三个功能键;language 是全局设置,不在其列。 */
+export type FeatureName = "headsup" | "advisor" | "hint";
 
 export function configPath(): string {
 	return join(getAgentDir(), "wingman.json");
@@ -49,7 +55,7 @@ function mergeFeature(base: FeatureConfig, override: unknown): FeatureConfig {
 }
 
 export function loadConfig(path: string = configPath()): WingmanConfig {
-	let raw: Partial<Record<keyof WingmanConfig, unknown>> = {};
+	let raw: Partial<Record<FeatureName | "language", unknown>> = {};
 	try {
 		const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
 		if (typeof parsed === "object" && parsed !== null) raw = parsed;
@@ -60,17 +66,18 @@ export function loadConfig(path: string = configPath()): WingmanConfig {
 		headsup: mergeFeature(DEFAULT_CONFIG.headsup, raw.headsup),
 		advisor: mergeFeature(DEFAULT_CONFIG.advisor, raw.advisor),
 		hint: mergeFeature(DEFAULT_CONFIG.hint, raw.hint),
+		...(typeof raw.language === "string" ? { language: raw.language } : {}),
 	};
 }
 
 export function saveConfig(config: WingmanConfig, path: string = configPath()): void {
 	mkdirSync(dirname(path), { recursive: true });
-	writeFileSync(path, JSON.stringify(config, null, "\t") + "\n");
+	writeFileSync(path, `${JSON.stringify(config, null, "\t")}\n`);
 }
 
 /** 状态行:"hint: on (provider/model · high)" / "hint: on (current model)" / "hint: off"。 */
-export function featureLine(name: string, feature: FeatureConfig): string {
-	const model = feature.model ?? "current model";
+export function featureLine(name: string, feature: FeatureConfig, lang: Lang = "en"): string {
+	const model = feature.model ?? strings(lang).currentModel;
 	const state = feature.enabled ? `on (${feature.effort ? `${model} · ${feature.effort}` : model})` : "off";
 	return `${name}: ${state}`;
 }
@@ -82,9 +89,10 @@ export function featureLine(name: string, feature: FeatureConfig): string {
  */
 export function applyFeatureArg(
 	config: WingmanConfig,
-	feature: keyof WingmanConfig,
+	feature: FeatureName,
 	arg: string,
 	effort?: ModelThinkingLevel,
+	lang: Lang = "en",
 ): string {
 	const value = arg.trim();
 	if (value === "off" || value === "on") {
@@ -92,5 +100,5 @@ export function applyFeatureArg(
 	} else if (value) {
 		config[feature] = { enabled: true, model: value, effort };
 	}
-	return featureLine(feature, config[feature]);
+	return featureLine(feature, config[feature], lang);
 }

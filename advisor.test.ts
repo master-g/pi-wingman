@@ -61,7 +61,7 @@ describe("installAdvisor 后台审计", () => {
 			advisor: { enabled: true, model: "p/m" },
 			hint: { enabled: false },
 		};
-		installAdvisor(pi, () => config, () => "目标");
+		installAdvisor(pi, () => config, () => "目标", () => "zh" as const);
 		const turnEnd = {
 			message: { role: "assistant", content: [{ type: "text", text: "改 a.ts" }] },
 			toolResults: [],

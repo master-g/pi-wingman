@@ -93,7 +93,7 @@ describe("installHint 后台生成与底栏状态", () => {
 		};
 		const config: WingmanConfig = { headsup: { enabled: false }, advisor: { enabled: false }, hint: { enabled: true } };
 		const editors = { current: { setHint: (hint?: string) => hints.push(hint) } } as unknown as EditorManager;
-		installHint(pi, () => config, () => "目标", editors);
+		installHint(pi, () => config, () => "目标", editors, () => "zh" as const);
 		const agentEnd = { messages: [{ role: "assistant", content: [{ type: "text", text: "改好了" }] }] } as never;
 		return {
 			onAgentEnd: () => handlers.get("agent_end")!(agentEnd, ctx as never),

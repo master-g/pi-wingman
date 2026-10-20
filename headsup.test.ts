@@ -19,7 +19,7 @@ const finding = {
 
 describe("HeadsUpView 三态", () => {
 	test("折叠态:一句话 + 选项行", () => {
-		const view = new HeadsUpView();
+		const view = new HeadsUpView(() => "zh" as const);
 		expect(view.show(finding)).toBe(true);
 		expect(view.hasPending()).toBe(true);
 		const lines = view.lines(80, theme);
@@ -31,7 +31,7 @@ describe("HeadsUpView 三态", () => {
 	});
 
 	test("折叠按 1 展开:显示要点与展开态选项", () => {
-		const view = new HeadsUpView();
+		const view = new HeadsUpView(() => "zh" as const);
 		view.show(finding);
 		expect(view.handleKey("1").action).toBe("expanded");
 		const text = view.lines(80, theme).join("\n");
@@ -42,7 +42,7 @@ describe("HeadsUpView 三态", () => {
 
 	test("折叠按 0/2 忽略或已知悉:dismiss 且抑制同一发现", () => {
 		for (const key of ["0", "2"] as const) {
-			const view = new HeadsUpView();
+			const view = new HeadsUpView(() => "zh" as const);
 			view.show(finding);
 			expect(view.handleKey(key).action).toBe("dismissed");
 			expect(view.hasPending()).toBe(false);
@@ -52,19 +52,19 @@ describe("HeadsUpView 三态", () => {
 	});
 
 	test("展开按 2 带到主会话:action copied,携带引用块", () => {
-		const view = new HeadsUpView();
+		const view = new HeadsUpView(() => "zh" as const);
 		view.show(finding);
 		view.handleKey("1");
 		const result = view.handleKey("2");
 		expect(view.hasPending()).toBe(false);
 		if (result.action !== "copied") throw new Error(`expected copied, got ${result.action}`);
-		expect(result.text).toContain("Here is a note offered by a side agent:");
+		expect(result.text).toContain("这是旁路 agent 提供的一条提示:");
 		expect(result.text).toContain("> Heads up · 在错误的文件里改");
 		expect(result.text).toContain("> - 改的是 a.ts");
 	});
 
 	test("展开按 1 知道了:dismiss", () => {
-		const view = new HeadsUpView();
+		const view = new HeadsUpView(() => "zh" as const);
 		view.show(finding);
 		view.handleKey("1");
 		expect(view.handleKey("1").action).toBe("dismissed");
@@ -72,13 +72,13 @@ describe("HeadsUpView 三态", () => {
 	});
 
 	test("无 finding 时按键为 none,lines 为空", () => {
-		const view = new HeadsUpView();
+		const view = new HeadsUpView(() => "zh" as const);
 		expect(view.handleKey("1").action).toBe("none");
 		expect(view.lines(80, theme)).toEqual([]);
 	});
 
 	test("每行可见宽度不超过渲染宽度", () => {
-		const view = new HeadsUpView();
+		const view = new HeadsUpView(() => "zh" as const);
 		view.show({ level: "blocker", summary: "很长".repeat(40), details: ["也很长".repeat(40)] });
 		view.handleKey("1");
 		for (const line of view.lines(24, theme)) {
@@ -146,7 +146,7 @@ describe("installHeadsUp 集成", () => {
 			enabled: true,
 			model: "p/m",
 		});
-		installHeadsUp(h.pi, () => h.config, () => "", h.editors, { batchSize: 2, debounceMs: 60_000 });
+		installHeadsUp(h.pi, () => h.config, () => "", h.editors, () => "zh" as const, { batchSize: 2, debounceMs: 60_000 });
 		const onToolEnd = h.handlers.get("tool_execution_end")!;
 		await onToolEnd(toolEnd("bash"), h.ctx as never);
 		expect(h.getCompleteCalls()).toBe(0); // 未到阈值
@@ -159,7 +159,7 @@ describe("installHeadsUp 集成", () => {
 		// 折叠 → 展开 → 带到主会话
 		expect(h.editors.headsUpHandler?.("1")).toBe(true);
 		expect(h.editors.headsUpHandler?.("2")).toBe(true);
-		expect(h.editorTexts[0]).toContain("Here is a note offered by a side agent:");
+		expect(h.editorTexts[0]).toContain("这是旁路 agent 提供的一条提示:");
 		// 拷贝即 dismiss:widget 卸载
 		expect(h.widgetCalls.length).toBe(2);
 		expect(h.widgetCalls[1]).toBeUndefined();
@@ -167,7 +167,7 @@ describe("installHeadsUp 集成", () => {
 
 	test("ok 不上屏", async () => {
 		const h = makeHarness("VERDICT: ok\nSUMMARY: 正常", { enabled: true, model: "p/m" });
-		installHeadsUp(h.pi, () => h.config, () => "", h.editors, { batchSize: 1, debounceMs: 60_000 });
+		installHeadsUp(h.pi, () => h.config, () => "", h.editors, () => "zh" as const, { batchSize: 1, debounceMs: 60_000 });
 		await h.handlers.get("tool_execution_end")!(toolEnd("bash"), h.ctx as never);
 		await settle();
 		expect(h.getCompleteCalls()).toBe(1);
@@ -177,7 +177,7 @@ describe("installHeadsUp 集成", () => {
 	test("同一发现被抑制:第二次审计到相同结论不再上屏", async () => {
 		const h = makeHarness("VERDICT: concern\nSUMMARY: 在错误的文件里改", { enabled: true, model: "p/m" });
 		// minIntervalMs: 0 关掉冷却,否则第二次审计会被冷却拦下,测不到抑制
-		installHeadsUp(h.pi, () => h.config, () => "", h.editors, { batchSize: 1, debounceMs: 60_000, minIntervalMs: 0 });
+		installHeadsUp(h.pi, () => h.config, () => "", h.editors, () => "zh" as const, { batchSize: 1, debounceMs: 60_000, minIntervalMs: 0 });
 		const onToolEnd = h.handlers.get("tool_execution_end")!;
 		await onToolEnd(toolEnd("bash"), h.ctx as never);
 		await settle();
@@ -192,7 +192,7 @@ describe("installHeadsUp 集成", () => {
 
 	test("未配置模型时不激活(守卫 enabled && model)", async () => {
 		const h = makeHarness("VERDICT: blocker\nSUMMARY: x", { enabled: true });
-		installHeadsUp(h.pi, () => h.config, () => "", h.editors, { batchSize: 1, debounceMs: 60_000 });
+		installHeadsUp(h.pi, () => h.config, () => "", h.editors, () => "zh" as const, { batchSize: 1, debounceMs: 60_000 });
 		await h.handlers.get("tool_execution_end")!(toolEnd("bash"), h.ctx as never);
 		await settle();
 		expect(h.getCompleteCalls()).toBe(0);

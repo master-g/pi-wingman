@@ -21,6 +21,7 @@ import { applyFeatureArg, featureLine, isEffort, loadConfig, saveConfig, type Wi
 import { EditorManager } from "./editor.js";
 import { installHeadsUp } from "./headsup.js";
 import { installHint } from "./hint.js";
+import { resolveLang, strings } from "./i18n.js";
 import { resolveModel, type ModelRegistry } from "./llm.js";
 import { pickModel, type Picked } from "./picker.js";
 
@@ -32,12 +33,16 @@ export default function (pi: ExtensionAPI) {
 	const editors = new EditorManager();
 	const getConfig = () => config;
 	const getGoal = () => goal;
+	/** 界面与旁路输出语言:wingman.json 的 language > 环境变量 > 英语,按次取。 */
+	const getLang = () => resolveLang(config.language);
 
 	const features = ["advisor", "hint", "headsup"] as const;
 	type Feature = (typeof features)[number];
 	const isFeature = (name: string | undefined): name is Feature => features.includes(name as Feature);
+	const langValues = ["en", "zh", "auto"];
 
-	const usage = "/wingman <advisor|hint|headsup> [<provider/model> [effort] | on | off]";
+	const usage =
+		"/wingman <advisor|hint|headsup> [<provider/model> [effort] | on | off] · /wingman language <en|zh|auto>";
 
 	pi.registerCommand("wingman", {
 		description: `Wingman status, or configure: ${usage}`,
@@ -45,9 +50,16 @@ export default function (pi: ExtensionAPI) {
 			const [feature, value, effort, ...rest] = prefix.trimStart().split(/\s+/);
 			if (rest.length > 0) return null;
 			if (value === undefined) {
-				const items = features
+				const items = [...features, "language"]
 					.filter((name) => name.startsWith(feature ?? ""))
 					.map((name) => ({ value: `${name} `, label: name }));
+				return items.length > 0 ? items : null;
+			}
+			if (feature === "language") {
+				if (effort !== undefined) return null;
+				const items = langValues
+					.filter((v) => v.startsWith(value))
+					.map((v) => ({ value: `language ${v}`, label: v }));
 				return items.length > 0 ? items : null;
 			}
 			if (!isFeature(feature)) return null;
@@ -67,16 +79,32 @@ export default function (pi: ExtensionAPI) {
 		},
 		handler: async (args, ctx) => {
 			const [feature, arg = "", effortArg, ...extra] = args.trim().split(/\s+/).filter(Boolean);
+			const s = strings(getLang());
 			if (feature === undefined) {
 				ctx.ui.notify(
-					["wingman", ...features.map((name) => featureLine(name, config[name]))].join(" · "),
+					[
+						"wingman",
+						...features.map((name) => featureLine(name, config[name], getLang())),
+						`language: ${config.language ?? "auto"} (${getLang()})`,
+					].join(" · "),
 					"info",
 				);
 				return;
 			}
+			if (feature === "language") {
+				if (extra.length > 0 || effortArg !== undefined || (arg !== "" && !langValues.includes(arg))) {
+					ctx.ui.notify(s.languageValueError, "error");
+					return;
+				}
+				if (arg === "auto") delete config.language;
+				else if (arg) config.language = arg;
+				if (arg) saveConfig(config);
+				ctx.ui.notify(`wingman · language: ${config.language ?? "auto"} (${getLang()})`, "info");
+				return;
+			}
 			const isSwitch = arg === "on" || arg === "off";
 			if (!isFeature(feature) || extra.length > 0 || (effortArg !== undefined && isSwitch)) {
-				ctx.ui.notify(`wingman · 用法 ${usage}`, "error");
+				ctx.ui.notify(s.usageError(usage), "error");
 				return;
 			}
 			let value = arg;
@@ -87,7 +115,7 @@ export default function (pi: ExtensionAPI) {
 					picked = await pickModel(ctx, config[feature]);
 				} catch (error) {
 					const reason = error instanceof Error ? error.message : String(error);
-					ctx.ui.notify(`wingman · 选择器不可用(${reason}),改用 /wingman ${feature} <provider/model> [effort]`, "error");
+					ctx.ui.notify(s.pickerUnavailable(reason, feature), "error");
 					return;
 				}
 				if (!picked) return;
@@ -96,23 +124,23 @@ export default function (pi: ExtensionAPI) {
 			} else if (value && !isSwitch) {
 				const model = resolveModel(ctx.modelRegistry, value, undefined);
 				if (!model) {
-					ctx.ui.notify(`wingman · 找不到模型 ${value}(格式 provider/model-id)`, "error");
+					ctx.ui.notify(s.modelNotFound(value), "error");
 					return;
 				}
 				if (effortArg !== undefined) {
 					const levels = getSupportedThinkingLevels(model);
 					if (!isEffort(effortArg) || !levels.includes(effortArg)) {
-						ctx.ui.notify(`wingman · ${value} 支持的 effort:${levels.join(" / ")}`, "error");
+						ctx.ui.notify(s.supportedEfforts(value, levels.join(" / ")), "error");
 						return;
 					}
 					effort = effortArg;
 				}
 			}
 			if (value === "on" && feature !== "hint" && !config[feature].model) {
-				ctx.ui.notify(`wingman · ${feature} 需要模型,先 /wingman ${feature} <provider/model>`, "error");
+				ctx.ui.notify(s.needsModel(feature), "error");
 				return;
 			}
-			const line = applyFeatureArg(config, feature, value, effort);
+			const line = applyFeatureArg(config, feature, value, effort, getLang());
 			if (value) {
 				saveConfig(config);
 				editors.sync(ctx, config);
@@ -136,7 +164,7 @@ export default function (pi: ExtensionAPI) {
 		editors.teardown(ctx);
 	});
 
-	installHint(pi, getConfig, getGoal, editors);
-	installAdvisor(pi, getConfig, getGoal);
-	installHeadsUp(pi, getConfig, getGoal, editors);
+	installHint(pi, getConfig, getGoal, editors, getLang);
+	installAdvisor(pi, getConfig, getGoal, getLang);
+	installHeadsUp(pi, getConfig, getGoal, editors, getLang);
 }

@@ -99,7 +99,7 @@ describe("parseVerdict", () => {
 });
 
 describe("Auditor 冷却与互斥", () => {
-	const input = { goal: "目标", digest: "摘要" };
+	const input = { goal: "目标", digest: "摘要", lang: "zh" as const };
 
 	test("成功路径返回解析后的 Verdict", async () => {
 		const auditor = new Auditor({ minIntervalMs: 1000, now: () => 0 });

@@ -11,15 +11,19 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { buildDigest, type DigestMessage } from "./audit.js";
 import type { WingmanConfig } from "./config.js";
 import type { EditorManager } from "./editor.js";
+import { strings, type Lang } from "./i18n.js";
 import { completeText, resolveModel, type AnyModel } from "./llm.js";
 
-const HINT_SYSTEM_PROMPT = `The user is driving an AI coding agent. Given the user's goal and the latest transcript, suggest the single next prompt the user is most likely to send.
+function hintSystemPrompt(lang: Lang): string {
+	return `The user is driving an AI coding agent. Given the user's goal and the latest transcript, suggest the single next prompt the user is most likely to send.
 
 Rules:
 - Output only the prompt text, no quotes, no explanation.
 - At most 120 characters, one line.
 - Continue the work naturally (next step, fix, verify, or commit); do not repeat what was just done.
-- If the work looks finished, suggest a sensible follow-up or say "继续".`;
+- If the work looks finished, suggest a sensible follow-up or say "${lang === "zh" ? "继续" : "done"}".
+- Write the prompt in ${lang === "zh" ? "Chinese (中文)" : "English"}.`;
+}
 
 const MAX_HINT_CHARS = 120;
 const STATUS_KEY = "wingman-hint";
@@ -29,6 +33,7 @@ export function installHint(
 	getConfig: () => WingmanConfig,
 	getGoal: () => string,
 	editors: EditorManager,
+	getLang: () => Lang,
 ): void {
 	const shutdown = new AbortController();
 	/** 每个新 run 自增;生成回来时代际已变说明 hint 过期,丢弃。 */
@@ -36,16 +41,17 @@ export function installHint(
 
 	const generate = async (ctx: ExtensionContext, model: AnyModel, transcript: string, gen: number) => {
 		ctx.ui.setStatus(STATUS_KEY, "hint ⋯");
-		const goal = getGoal() ? `User's goal: ${getGoal()}\n\n` : "";
+		const s = strings(getLang());
+		const goal = getGoal() ? `${s.labels.goal}: ${getGoal()}\n\n` : "";
 		const result = await completeText(
 			ctx.modelRegistry,
 			model,
 			{
-				systemPrompt: HINT_SYSTEM_PROMPT,
+				systemPrompt: hintSystemPrompt(getLang()),
 				messages: [
 					{
 						role: "user",
-						content: [{ type: "text", text: `${goal}Latest transcript:\n${transcript}` }],
+						content: [{ type: "text", text: `${goal}${s.labels.latestTranscript}:\n${transcript}` }],
 						timestamp: Date.now(),
 					},
 				],

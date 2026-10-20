@@ -23,6 +23,7 @@ import { join } from "node:path";
 import { auditStatus, Auditor, type Verdict, type VerdictLevel } from "./audit.js";
 import type { WingmanConfig } from "./config.js";
 import type { EditorManager } from "./editor.js";
+import { strings, type Lang } from "./i18n.js";
 import { resolveModel } from "./llm.js";
 
 export type HeadsUpAction = { action: "none" | "expanded" | "dismissed" } | { action: "copied"; text: string };
@@ -47,6 +48,9 @@ export class HeadsUpView {
 	private finding: Verdict | undefined;
 	private expanded = false;
 	private readonly suppressed = new Set<string>();
+
+	/** getLang 按次取:/wingman language 改完下一次渲染即用新语言。 */
+	constructor(private readonly getLang: () => Lang) {}
 
 	private key(finding: Verdict): string {
 		return `${finding.level}:${finding.summary}`;
@@ -92,9 +96,10 @@ export class HeadsUpView {
 	/** 当前状态的渲染行;无 finding 时为空数组。每行已按宽度截断。 */
 	lines(width: number, theme: Pick<Theme, "fg">): string[] {
 		if (!this.finding) return [];
+		const s = strings(this.getLang());
 		const color = LEVEL_COLOR[this.finding.level];
 		const title = `✦ Heads up · ${color ? theme.fg(color, this.finding.summary) : this.finding.summary}`;
-		const options = theme.fg("dim", this.expanded ? "  1: 知道了  2: 带到主会话  0: 忽略" : "  1: 展开  2: 已知悉  0: 忽略");
+		const options = theme.fg("dim", this.expanded ? s.headsupExpandedOptions : s.headsupCollapsedOptions);
 		const lines = this.expanded
 			? [title, "", ...this.finding.details.map((d) => `- ${d}`), "", options]
 			: [title, options];
@@ -108,7 +113,7 @@ export class HeadsUpView {
 			quoted.push(">");
 			for (const detail of finding.details) quoted.push(`> - ${detail}`);
 		}
-		return `Here is a note offered by a side agent:\n\n${quoted.join("\n")}`;
+		return `${strings(this.getLang()).headsupCopyHeader}\n\n${quoted.join("\n")}`;
 	}
 }
 
@@ -140,12 +145,13 @@ export function installHeadsUp(
 	getConfig: () => WingmanConfig,
 	getGoal: () => string,
 	editors: EditorManager,
+	getLang: () => Lang,
 	options: HeadsUpOptions = {},
 ): void {
 	const batchSize = options.batchSize ?? 6;
 	const debounceMs = options.debounceMs ?? 8_000;
 	const auditor = new Auditor({ minIntervalMs: options.minIntervalMs ?? 30_000 });
-	const view = new HeadsUpView();
+	const view = new HeadsUpView(getLang);
 	const shutdown = new AbortController();
 	let pending: ToolEventRecord[] = [];
 	let timer: ReturnType<typeof setTimeout> | undefined;
@@ -218,7 +224,7 @@ export function installHeadsUp(
 		const result = await auditor.run(
 			ctx.modelRegistry,
 			model,
-			{ goal: getGoal(), digest: formatToolEvents(events) },
+			{ goal: getGoal(), digest: formatToolEvents(events), lang: getLang() },
 			{ timeoutMs: 60_000, signal: shutdown.signal, effort: config.effort },
 		);
 		if (!result) return;
