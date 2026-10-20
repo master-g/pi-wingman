@@ -50,7 +50,7 @@ DETAILS:(仅 concern/blocker 时输出此块,最多 4 条要点,每条一行以 
 - note:方向正确,但有一个可选的改进建议
 - ok:一切正常,无话可说
 
-宁缺毋滥:不确定时选 ok。带 [wingman advisor 标记的消息是顾问自己之前的旁注,不要评论它。`;
+宁缺毋滥:不确定时选 ok。带 [wingman advisor · FYI] 标记的消息是顾问自己之前的旁注,不要评论它。`;
 
 /** 把近期消息压成审计用摘要:role 前缀 + 截断正文 + 工具调用/结果行。 */
 export function buildDigest(messages: DigestMessage[], options: DigestOptions = {}): string {

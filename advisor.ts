@@ -18,14 +18,14 @@ import type { WingmanConfig } from "./config.js";
 import { completeText, messageText, resolveModel, type AnyModel, type ModelRegistry } from "./llm.js";
 
 /** 注入消息的打标前缀;审计 prompt 也告诉审计员忽略带此标记的内容。 */
-export const ADVISOR_MARKER = "[wingman advisor";
+export const ADVISOR_MARKER = "[wingman advisor · FYI]";
 
 export function isAdvisorNote(text: string): boolean {
 	return text.startsWith(ADVISOR_MARKER);
 }
 
 export function formatAdvisorNote(verdict: { level: VerdictLevel; summary: string }): string {
-	return `${ADVISOR_MARKER} · 旁注,非用户消息,仅供参考] ${verdict.level}: ${verdict.summary}`;
+	return `${ADVISOR_MARKER} ${verdict.level}: ${verdict.summary}`;
 }
 
 /**
@@ -158,7 +158,7 @@ export function installAdvisor(pi: ExtensionAPI, getConfig: () => WingmanConfig,
 				ctx.ui.notify(`advisor 调用失败:${result.reason}`, "error");
 				return;
 			}
-			pi.sendUserMessage(`${ADVISOR_MARKER} · 问答] 问:${question}\n答:${result.text}`, { deliverAs: "steer" });
+			pi.sendUserMessage(`${ADVISOR_MARKER} 问:${question}\n答:${result.text}`, { deliverAs: "steer" });
 			ctx.ui.notify("顾问回答已注入对话", "info");
 		},
 	});

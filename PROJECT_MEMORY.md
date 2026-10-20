@@ -20,6 +20,7 @@
 - heads-up 旁路管线的唯一观测口是 `WINGMAN_DEBUG=1`(追加写 /tmp/wingman-debug.log):pty 烟测靠它确认了聚合/去抖两路 flush 与 ok/note 门控静默;真实 concern 上屏未实测(审计总能正确判 ok/note,难以稳定诱发)——2026-10-19。
 - /new、/resume、/fork、reload 都重建 runtime 并重新执行扩展工厂(loader.js initializeExtension),工厂内状态天然按会话隔离,session_start 里重置状态是多余的——2026-10-19 读 SDK dist 核实。
 - advisor 防循环按注入文本识别:message_end 见带 ADVISOR_MARKER 的 user 消息→下一 turn_end 跳过;审计后台跑,裁决回来时 `ctx.isIdle()` 则只 notify 不 steer(顾问不自行唤醒 agent)——2026-10-19 用户决定。
+- advisor steer 在 run 活跃时必达主 agent:在 turn 边界(本 turn 工具跑完后)以 role:user 进上下文;末 turn 后才入队,post-run 循环 hasQueuedMessages→continue 多跑一轮回应;sendUserMessage 先 await input handlers 再查 isStreaming,此窄窗口内 run 结束会新起 run——2026-10-20 读 agent-loop.js/agent-session.js 核实。
 - 复用 pi 的 ModelSelectorComponent 要 ModelRuntime,扩展只有 ModelRegistry:组件只调 getAvailableSnapshot/getModel/getError/refresh,registry 一一转发,故用 4 方法适配对象 `as unknown as ModelRuntime`;组件需 initTheme(TUI 里已初始化),失败回退手输——2026-10-19 读 model-selector.js 并用真组件无头跑通。
 - 扩展可 import `@earendil-works/pi-ai`(loader 别名到 compat 入口,packages.md 要求 peerDependencies 写 "*"):effort 档位用 getSupportedThinkingLevels/clampThinkingLevel——2026-10-19。
 - 试用反馈「advisor/heads-up 没动静」根因是审计多判 ok 且 ok/失败都静默(pty 实测两条链路都在跑),故加底栏 setStatus 显示 ⋯/✓级别/✗原因;glm-5.3-flash 在 effort=max 下偶发 stopReason=error——2026-10-19。
@@ -37,10 +38,10 @@
 
 <!-- 整块改写：分支、验证命令及实际结果、停在何处；接下来做什么。 -->
 
-- [2026-10-19] main:0.0.3 已发布;用户确认 powerline-footer 能显示扩展状态;按反馈给 hint 加底栏状态(⋯/✗原因)并把超时放宽到 30s;67 测试过、typecheck 干净,真实 pi pty+pyte 核实底栏出现 hint ⋯ 后 hint 内联显示;已推送,0.0.4 由用户发布。
+- [2026-10-20] main:按用户要求把注入前缀精简为 `[wingman advisor · FYI]`(ADVISOR_MARKER 即完整前缀,note 与 /ask-advisor 共用;FYI 而非 ref only:ref 易读成 git ref,且要表达不必照做);读 SDK 确认 steer 会进主 agent 上下文;67 测试过、typecheck 干净;未提交。
 
 ## 下次运行
 
 <!-- 整块改写：接下来的任务和优先级，含仍受阻的项。 -->
 
-- [2026-10-19] 1) 核对 npm 上 0.0.4;2) hint 内容常是笼统的「继续」,提示词是否要改待观察;3) 观察高 effort 下 advisor/headsup 60s 超时是否够。
+- [2026-10-20] 1) 核对 npm 上 0.0.4;2) 观察主 agent 是否仍把 `· FYI` 旁注当用户指令执行;3) hint 内容常是笼统的「继续」,提示词待观察;4) 高 effort 下 advisor/headsup 60s 超时是否够。

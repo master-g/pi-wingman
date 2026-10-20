@@ -5,14 +5,14 @@ import type { WingmanConfig } from "./config.js";
 
 describe("isAdvisorNote / formatAdvisorNote", () => {
 	test("标记前缀识别", () => {
-		expect(isAdvisorNote(`${ADVISOR_MARKER} · 旁注] concern: 改错了`)).toBe(true);
+		expect(isAdvisorNote(`${ADVISOR_MARKER} concern: 改错了`)).toBe(true);
 		expect(isAdvisorNote("用户的正常 prompt")).toBe(false);
 	});
 
 	test("注入格式:标记 + 级别 + 一句话", () => {
 		const note = formatAdvisorNote({ level: "concern", summary: "改错了文件" });
 		expect(isAdvisorNote(note)).toBe(true);
-		expect(note).toContain("concern: 改错了文件");
+		expect(note).toBe("[wingman advisor · FYI] concern: 改错了文件");
 	});
 });
 
@@ -32,7 +32,7 @@ describe("AdvisorState 防循环", () => {
 
 	test("/ask-advisor 问答注入同样打标跳过", () => {
 		const state = new AdvisorState();
-		state.onUserMessage(`${ADVISOR_MARKER} · 问答] 问:x\n答:y`);
+		state.onUserMessage(`${ADVISOR_MARKER} 问:x\n答:y`);
 		expect(state.shouldAuditTurn()).toBe(false);
 	});
 });
