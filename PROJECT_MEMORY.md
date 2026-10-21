@@ -28,6 +28,7 @@
 - pty 烟测看最终屏幕:差分渲染的日志直接 grep 不准,用 pyte(scratchpad venv)回放 `script` 日志得到 80x24 屏幕再比对,hint 内联与底栏状态都这样核实——2026-10-19。
 - CustomEditor 构造参数里的 keybindings 是 app 键位;输入键位(tui.input.tab/submit)要用 pi-tui 的 `getKeybindings()`,与基类编辑器一致——2026-10-19 读 editor.js 核实。
 - pi 没有语言设置(settings.json 与运行时均无 locale 概念,docs/settings.md 与 dist 核实);wingman 语言解析在 i18n.ts:wingman.json 的 language 字段 > LC_ALL/LANG(zh 开头判中文) > 兜底英语,UI 文案与旁路提示词输出语言共用 `/wingman language en|zh|auto` 一处配置——2026-10-20。
+- 端到端验证扩展行为可用 mock pi/ctx 直接驱动扩展工厂(不进仓库的 /tmp 脚本):同一事件多个 handler 要用数组派发(map 会被后注册的覆盖),编辑器工厂用 editor.test.ts 同款 tui/theme mock,配置改道 PI_CODING_AGENT_DIR;i18n 四场景(兜底/命令/环境变量/auto 回落)×12 断言全过——2026-10-20。
 
 ## 失败尝试
 
@@ -39,10 +40,10 @@
 
 <!-- 整块改写:分支、验证命令及实际结果、停在何处;接下来做什么。 -->
 
-- [2026-10-20] main:多语言支持落地——新增 i18n.ts(resolveLang + 双语文案表),audit/advisor/hint 提示词按语言钉输出指令,heads-up widget 与全部 notify 文案双语;`bun test` 71 过、`npm run typecheck` 干净;停在未发布的工作树,下一个版本号未升。
+- [2026-10-20] main:多语言支持落地并验证——i18n.ts(resolveLang + 双语文案表),audit/advisor/hint 提示词按语言钉输出指令,heads-up widget 与全部 notify 双语;`bun test` 71 过、typecheck 干净;`/wingman language` 端到端经 /tmp mock 脚本四场景验证通过(脚本未入库);停在 65d7e1c 之后只有记忆回写,版本未升未发布。
 
 ## 下次运行
 
 <!-- 整块改写:接下来的任务和优先级,含仍受阻的项。 -->
 
-- [2026-10-20] 1) 核对 npm 上 0.0.5;2) 观察主 agent 是否仍把 `· FYI` 旁注当用户指令执行;3) hint 内容常是笼统的「继续」,提示词待观察;4) 高 effort 下 advisor/headsup 60s 超时是否够;5) 实测 `/wingman language` 切换后 hint/audit 输出语言是否跟随(本次只单测了文案表与解析,未跑真实模型)。
+- [2026-10-20] 1) 核对 npm 上 0.0.5;2) 观察主 agent 是否仍把 `· FYI` 旁注当用户指令执行;3) hint 内容常是笼统的「继续」,提示词待观察;4) 高 effort 下 advisor/headsup 60s 超时是否够;5) 真实模型对语言指令的服从度未观察(提示词拼接已验证,模型是否真用目标语言输出待真实会话看)。
