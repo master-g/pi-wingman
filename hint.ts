@@ -21,7 +21,7 @@ Rules:
 - Output only the prompt text, no quotes, no explanation.
 - At most 120 characters, one line.
 - Continue the work naturally (next step, fix, verify, or commit); do not repeat what was just done.
-- If the work looks finished, suggest a sensible follow-up or say "${lang === "zh" ? "继续" : "done"}".
+- If the work looks finished, suggest a sensible follow-up or say "${lang === "zh" ? "继续" : "continue"}".
 - Write the prompt in ${lang === "zh" ? "Chinese (中文)" : "English"}.`;
 }
 

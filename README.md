@@ -29,7 +29,7 @@ pi --extension ~/github/pi-wingman/index.ts
 - `/wingman` — 查看三个功能的状态与模型
 - `/wingman advisor|hint|headsup` — 不带值时弹出 pi 的模型选择器（同 `/model`，可搜索），选完模型再选思考强度（同 `/thinking`，Esc 跳过）；也可直接写 `<provider/model> [effort]`（模型须存在，effort 须是该模型支持的档位）、`on` / `off`（开关，保留已设模型与 effort）；参数支持补全
 - `/ask-advisor <问题>` — 就当前上下文咨询顾问模型，回答注入对话
-- `/wingman language en|zh|auto` — 界面与旁路输出语言；`auto`（默认）按环境变量 `LC_ALL` / `LANG` 判定（`zh` 开头用中文），pi 本身没有语言设置，无线索时兜底英语。hint/advisor/heads-up 的模型输出语言与 UI 文案共用同一判定，改完立即生效
+- `/wingman language en|zh|auto` — 界面与旁路输出语言；`auto`（默认）按环境变量 `LC_ALL` / `LANG` 判定（`zh` 开头用中文；`LC_ALL` 不是 `zh`/`en` 开头时，如 `C`，继续看 `LANG`），pi 本身没有语言设置，无线索时兜底英语。hint/advisor/heads-up 的模型输出语言与 UI 文案共用同一判定，改完立即生效；命令描述与模型调用的失败原因固定英文
 
 advisor 与 heads-up 审计通过（ok）时不打扰，只在底栏状态显示 `advisor ⋯`（审计中）、`advisor ✓ ok`（结果级别）或 `advisor ✗ 原因`（调用失败）；hint 生成中显示 `hint ⋯`，失败显示 `hint ✗ 原因`，成功后 hint 直接出现在输入行；自定义 footer 扩展需要自己渲染扩展状态才看得到。
 

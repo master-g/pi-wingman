@@ -77,8 +77,11 @@ export function saveConfig(config: WingmanConfig, path: string = configPath()): 
 
 /** 状态行:"hint: on (provider/model · high)" / "hint: on (current model)" / "hint: off"。 */
 export function featureLine(name: string, feature: FeatureConfig, lang: Lang = "en"): string {
-	const model = feature.model ?? strings(lang).currentModel;
-	const state = feature.enabled ? `on (${feature.effort ? `${model} · ${feature.effort}` : model})` : "off";
+	const s = strings(lang);
+	const model = feature.model ?? s.currentModel;
+	const state = feature.enabled
+		? `${s.featureOn} (${feature.effort ? `${model} · ${feature.effort}` : model})`
+		: s.featureOff;
 	return `${name}: ${state}`;
 }
 

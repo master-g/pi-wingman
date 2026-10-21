@@ -8,7 +8,7 @@
  * (保留 last-good,即不清已显示的 finding)。
  *
  * widget 三态(挂载于 belowEditor,出现时挂载、dismiss 即卸载):
- *   折叠:`✦ Heads up · <一句话>` + `1: 展开  2: 已知悉  0: 忽略`
+ *   折叠:`✦ 提醒 · <一句话>`(英文为 Heads up) + `1: 展开  2: 已知悉  0: 忽略`
  *   展开:标题 + 要点列表 + `1: 知道了  2: 带到主会话  0: 忽略`
  *   带到主会话:setEditorText 填入引用块,用户自己编辑/发送(不自动注入)
  * 数字键仅编辑器为空时被 WingmanEditor 捕获,其余按键照常输入。
@@ -98,7 +98,7 @@ export class HeadsUpView {
 		if (!this.finding) return [];
 		const s = strings(this.getLang());
 		const color = LEVEL_COLOR[this.finding.level];
-		const title = `✦ Heads up · ${color ? theme.fg(color, this.finding.summary) : this.finding.summary}`;
+		const title = `✦ ${s.headsupTitle} · ${color ? theme.fg(color, this.finding.summary) : this.finding.summary}`;
 		const options = theme.fg("dim", this.expanded ? s.headsupExpandedOptions : s.headsupCollapsedOptions);
 		const lines = this.expanded
 			? [title, "", ...this.finding.details.map((d) => `- ${d}`), "", options]
@@ -108,12 +108,13 @@ export class HeadsUpView {
 
 	/** finding 的引用块格式(「带到主会话」内容)。 */
 	private copyText(finding: Verdict): string {
-		const quoted = [`> Heads up · ${finding.summary}`];
+		const s = strings(this.getLang());
+		const quoted = [`> ${s.headsupTitle} · ${finding.summary}`];
 		if (finding.details.length > 0) {
 			quoted.push(">");
 			for (const detail of finding.details) quoted.push(`> - ${detail}`);
 		}
-		return `${strings(this.getLang()).headsupCopyHeader}\n\n${quoted.join("\n")}`;
+		return `${s.headsupCopyHeader}\n\n${quoted.join("\n")}`;
 	}
 }
 

@@ -23,7 +23,7 @@ describe("HeadsUpView 三态", () => {
 		expect(view.show(finding)).toBe(true);
 		expect(view.hasPending()).toBe(true);
 		const lines = view.lines(80, theme);
-		expect(lines[0]).toContain("✦ Heads up");
+		expect(lines[0]).toContain("✦ 提醒");
 		expect(lines[0]).toContain("在错误的文件里改");
 		expect(lines[1]).toContain("1: 展开");
 		expect(lines[1]).toContain("2: 已知悉");
@@ -59,7 +59,7 @@ describe("HeadsUpView 三态", () => {
 		expect(view.hasPending()).toBe(false);
 		if (result.action !== "copied") throw new Error(`expected copied, got ${result.action}`);
 		expect(result.text).toContain("这是旁路 agent 提供的一条提示:");
-		expect(result.text).toContain("> Heads up · 在错误的文件里改");
+		expect(result.text).toContain("> 提醒 · 在错误的文件里改");
 		expect(result.text).toContain("> - 改的是 a.ts");
 	});
 

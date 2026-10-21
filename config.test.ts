@@ -39,6 +39,7 @@ describe("applyFeatureArg", () => {
 	test("effort 随模型设置,on/off 保留,换模型不带 effort 即清空", () => {
 		const config = fresh();
 		expect(applyFeatureArg(config, "advisor", "openai/gpt-5", "high")).toBe("advisor: on (openai/gpt-5 · high)");
+		expect(applyFeatureArg(config, "advisor", "", undefined, "zh")).toBe("advisor: 开启 (openai/gpt-5 · high)");
 		applyFeatureArg(config, "advisor", "off");
 		applyFeatureArg(config, "advisor", "on");
 		expect(config.advisor).toEqual({ enabled: true, model: "openai/gpt-5", effort: "high" });

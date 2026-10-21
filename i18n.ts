@@ -25,6 +25,9 @@ export function resolveLang(configured?: string, env: NodeJS.ProcessEnv = proces
 export interface WingmanStrings {
 	/** featureLine 未配模型时的占位 */
 	currentModel: string;
+	/** featureLine 的开关状态词;命令参数仍是 on/off */
+	featureOn: string;
+	featureOff: string;
 	usageError: (usage: string) => string;
 	pickerUnavailable: (reason: string, feature: string) => string;
 	modelNotFound: (spec: string) => string;
@@ -40,6 +43,8 @@ export interface WingmanStrings {
 	qaQuestion: string;
 	qaAnswer: string;
 	unparseableVerdict: (head: string) => string;
+	/** widget 标题与「带到主会话」引用块的开头 */
+	headsupTitle: string;
 	headsupCollapsedOptions: string;
 	headsupExpandedOptions: string;
 	headsupCopyHeader: string;
@@ -55,6 +60,8 @@ export interface WingmanStrings {
 
 const zh: WingmanStrings = {
 	currentModel: "当前模型",
+	featureOn: "开启",
+	featureOff: "关闭",
 	usageError: (usage) => `wingman · 用法 ${usage}`,
 	pickerUnavailable: (reason, feature) =>
 		`wingman · 选择器不可用(${reason}),改用 /wingman ${feature} <provider/model> [effort]`,
@@ -70,6 +77,7 @@ const zh: WingmanStrings = {
 	qaQuestion: "问",
 	qaAnswer: "答",
 	unparseableVerdict: (head) => `无法解析裁决:${head}`,
+	headsupTitle: "提醒",
 	headsupCollapsedOptions: "  1: 展开  2: 已知悉  0: 忽略",
 	headsupExpandedOptions: "  1: 知道了  2: 带到主会话  0: 忽略",
 	headsupCopyHeader: "这是旁路 agent 提供的一条提示:",
@@ -84,6 +92,8 @@ const zh: WingmanStrings = {
 
 const en: WingmanStrings = {
 	currentModel: "current model",
+	featureOn: "on",
+	featureOff: "off",
 	usageError: (usage) => `wingman · usage: ${usage}`,
 	pickerUnavailable: (reason, feature) =>
 		`wingman · picker unavailable (${reason}); use /wingman ${feature} <provider/model> [effort]`,
@@ -99,6 +109,7 @@ const en: WingmanStrings = {
 	qaQuestion: "Q",
 	qaAnswer: "A",
 	unparseableVerdict: (head) => `unparseable verdict: ${head}`,
+	headsupTitle: "Heads up",
 	headsupCollapsedOptions: "  1: expand  2: noted  0: dismiss",
 	headsupExpandedOptions: "  1: got it  2: bring to session  0: dismiss",
 	headsupCopyHeader: "Here is a note offered by a side agent:",
